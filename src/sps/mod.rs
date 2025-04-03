@@ -97,6 +97,14 @@ pub struct SK<E: Pairing> {
 #[derive(Clone, Debug)]
 pub struct VK<E: Pairing> {
     pub vk: [E::G1; 2],
+
+    pub a0_neg: E::G1,
+    pub a1_neg: E::G1,
+
+    pub g1_gen_neg: E::G1,
+
+    pub ua: [E::G1; 2],
+    pub va: [E::G1; 2],
 }
 
 #[derive(Clone, Debug)]
@@ -155,20 +163,33 @@ impl<E: Pairing> VK<E> {
             crs.powers_of_tau.powers_of_g[0] * sk.k[0][0] + crs.a_powers_of_tau[0] * sk.k[0][1],
             crs.powers_of_tau.powers_of_g[0] * sk.k[1][0] + crs.a_powers_of_tau[0] * sk.k[1][1],
         ];
-        Self { vk }
+
+        let a0_neg = -crs.powers_of_tau.powers_of_g[0].into_group();
+        let a1_neg = -crs.a_powers_of_tau[0];
+
+        let g1_gen_neg = -E::G1::generator();
+
+        Self {
+            vk,
+            a0_neg,
+            a1_neg,
+            g1_gen_neg,
+            ua: crs.ua.clone(),
+            va: crs.va.clone(),
+        }
     }
 
-    pub fn verify(&self, m: &E::G2, sig: &Sig<E>, crs: &CRS<E>) {
+    pub fn verify(&self, m: &E::G2, sig: &Sig<E>) {
         // check 1
         let lhs = [
-            -(crs.powers_of_tau.powers_of_g[0].into_group()),
-            -crs.a_powers_of_tau[0],
+            self.a0_neg,
+            self.a1_neg,
             self.vk[0],
             self.vk[1],
-            crs.ua[0],
-            crs.ua[1],
-            crs.va[0],
-            crs.va[1],
+            self.ua[0],
+            self.ua[1],
+            self.va[0],
+            self.va[1],
         ];
 
         let rhs = [
@@ -185,6 +206,21 @@ impl<E: Pairing> VK<E> {
         let should_be_zero = E::multi_miller_loop(lhs, rhs);
         let should_be_zero = E::final_exponentiation(should_be_zero).unwrap();
 
+        assert!(should_be_zero.is_zero());
+
+        // check 2
+        let lhs = [sig.s4, self.g1_gen_neg];
+        let rhs = [sig.s2[0], sig.s3[0]];
+
+        let should_be_zero = E::multi_miller_loop(lhs, rhs);
+        let should_be_zero = E::final_exponentiation(should_be_zero).unwrap();
+        assert!(should_be_zero.is_zero());
+
+        // check 3
+        let rhs = [sig.s2[1], sig.s3[1]];
+
+        let should_be_zero = E::multi_miller_loop(lhs, rhs);
+        let should_be_zero = E::final_exponentiation(should_be_zero).unwrap();
         assert!(should_be_zero.is_zero());
     }
 }
@@ -220,6 +256,6 @@ mod tests {
 
         let sig = sk.sign(&crs, m);
 
-        vk.verify(&m, &sig, &crs);
+        vk.verify(&m, &sig);
     }
 }
