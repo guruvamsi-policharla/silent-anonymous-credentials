@@ -1,6 +1,6 @@
-use ark_ec::PrimeGroup;
 use ark_ec::{pairing::Pairing, ScalarMul};
-use ark_ff::Field;
+use ark_ec::{PrimeGroup, VariableBaseMSM};
+use ark_ff::{Field, PrimeField};
 use ark_poly::Polynomial;
 use ark_std::{One, UniformRand, Zero};
 
@@ -177,5 +177,31 @@ impl<E: Pairing> CRS<E> {
             ali_x,
             ali_lj_z,
         }
+    }
+
+    pub fn commit_g1(&self, coeffs: &Vec<E::ScalarField>) -> E::G1 {
+        assert!(
+            coeffs.len() <= self.powers_of_g.len(),
+            "Too many coefficients for the given powers of tau"
+        );
+
+        let plain_coeffs = coeffs.iter().map(|c| c.into_bigint()).collect::<Vec<_>>();
+        <E::G1 as VariableBaseMSM>::msm_bigint(
+            &self.powers_of_g[..coeffs.len()],
+            plain_coeffs.as_slice(),
+        )
+    }
+
+    pub fn commit_g2(&self, coeffs: &Vec<E::ScalarField>) -> E::G2 {
+        assert!(
+            coeffs.len() <= self.powers_of_g.len(),
+            "Too many coefficients for the given powers of tau"
+        );
+
+        let plain_coeffs = coeffs.iter().map(|c| c.into_bigint()).collect::<Vec<_>>();
+        <E::G2 as VariableBaseMSM>::msm_bigint(
+            &self.powers_of_h[..coeffs.len()],
+            plain_coeffs.as_slice(),
+        )
     }
 }

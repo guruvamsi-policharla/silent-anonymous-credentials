@@ -4,6 +4,8 @@ use ark_std::{UniformRand, Zero};
 
 use crate::{crs::CRS, utils::hash_to_bytes};
 
+pub mod aggregate;
+
 #[derive(Clone, Debug)]
 pub struct SK<E: Pairing> {
     k: [[E::ScalarField; 2]; 2],
@@ -28,9 +30,10 @@ pub struct VK<E: Pairing> {
     pub ka_li_minus0: [E::G1; 2],
     pub ka_li_lj_z: Vec<[E::G1; 2]>,
     pub ka_li_x: [E::G1; 2],
+    pub ka_taun: [E::G1; 2],
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct Sig<E: Pairing> {
     pub s1: [E::G2; 2],
     pub s2: [E::G2; 2],
@@ -88,6 +91,11 @@ impl<E: Pairing> SK<E> {
             ]);
         }
 
+        let ka_taun = [
+            crs.powers_of_g[crs.n] * self.k[0][0] + crs.a_powers_of_g[crs.n] * self.k[0][1],
+            crs.powers_of_g[crs.n] * self.k[1][0] + crs.a_powers_of_g[crs.n] * self.k[1][1],
+        ];
+
         VK {
             vk,
             a0_neg,
@@ -100,6 +108,7 @@ impl<E: Pairing> SK<E> {
             ka_li_minus0,
             ka_li_lj_z,
             ka_li_x,
+            ka_taun,
         }
     }
 
