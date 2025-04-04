@@ -29,6 +29,16 @@ pub struct CRS<E: Pairing> {
     pub ali_minus0: Vec<E::G1>,
     pub ali_x: Vec<E::G1>,
     pub ali_lj_z: Vec<Vec<E::G1>>,
+
+    // preprocessed lagrange polynomials in g2 (only needed for verifying hints)
+    pub li_g2: Vec<E::G2>,
+    pub li_minus0_g2: Vec<E::G2>,
+    pub li_x_g2: Vec<E::G2>,
+    pub li_lj_z_g2: Vec<Vec<E::G2>>,
+    pub ali_g2: Vec<E::G2>,
+    pub ali_minus0_g2: Vec<E::G2>,
+    pub ali_x_g2: Vec<E::G2>,
+    pub ali_lj_z_g2: Vec<Vec<E::G2>>,
 }
 
 impl<E: Pairing> CRS<E> {
@@ -118,27 +128,52 @@ impl<E: Pairing> CRS<E> {
 
         let mut li = vec![E::G1::zero(); n];
         let mut ali = vec![E::G1::zero(); n];
+
+        let mut li_g2 = vec![E::G2::zero(); n];
+        let mut ali_g2 = vec![E::G2::zero(); n];
+
         for i in 0..n {
             li[i] = E::G1::generator() * li_evals[i];
             ali[i] = E::G1::generator() * (li_evals[i] * a[1]);
+
+            li_g2[i] = E::G2::generator() * li_evals[i];
+            ali_g2[i] = E::G2::generator() * (li_evals[i] * a[1]);
         }
 
         let mut li_minus0 = vec![E::G1::zero(); n];
         let mut ali_minus0 = vec![E::G1::zero(); n];
+
+        let mut li_minus0_g2 = vec![E::G2::zero(); n];
+        let mut ali_minus0_g2 = vec![E::G2::zero(); n];
+
         for i in 0..n {
             li_minus0[i] = E::G1::generator() * li_evals_minus0[i];
             ali_minus0[i] = E::G1::generator() * (li_evals_minus0[i] * a[1]);
+
+            li_minus0_g2[i] = E::G2::generator() * li_evals_minus0[i];
+            ali_minus0_g2[i] = E::G2::generator() * (li_evals_minus0[i] * a[1]);
         }
 
         let mut li_x = vec![E::G1::zero(); n];
         let mut ali_x = vec![E::G1::zero(); n];
+
+        let mut li_x_g2 = vec![E::G2::zero(); n];
+        let mut ali_x_g2 = vec![E::G2::zero(); n];
+
         for i in 0..n {
             li_x[i] = E::G1::generator() * li_evals_x[i];
             ali_x[i] = E::G1::generator() * (li_evals_x[i] * a[1]);
+
+            li_x_g2[i] = E::G2::generator() * li_evals_x[i];
+            ali_x_g2[i] = E::G2::generator() * (li_evals_x[i] * a[1]);
         }
 
         let mut li_lj_z = vec![vec![E::G1::zero(); n]; n];
         let mut ali_lj_z = vec![vec![E::G1::zero(); n]; n];
+
+        let mut li_lj_z_g2 = vec![vec![E::G2::zero(); n]; n];
+        let mut ali_lj_z_g2 = vec![vec![E::G2::zero(); n]; n];
+
         for i in 0..n {
             for j in 0..n {
                 li_lj_z[i][j] = if i == j {
@@ -153,10 +188,21 @@ impl<E: Pairing> CRS<E> {
                 } else {
                     E::G1::generator() * (li_evals[i] * li_evals[j] * z_eval_inv * a[1])
                 };
+
+                li_lj_z_g2[i][j] = if i == j {
+                    E::G2::generator() * ((li_evals[i] * li_evals[i] - li_evals[i]) * z_eval_inv)
+                } else {
+                    E::G2::generator() * (li_evals[i] * li_evals[j] * z_eval_inv)
+                };
+
+                ali_lj_z_g2[i][j] = if i == j {
+                    E::G2::generator()
+                        * ((li_evals[i] * li_evals[i] - li_evals[i]) * z_eval_inv * a[1])
+                } else {
+                    E::G2::generator() * (li_evals[i] * li_evals[j] * z_eval_inv * a[1])
+                };
             }
         }
-
-        // a_lagrange powers
 
         Self {
             ua,
@@ -176,6 +222,14 @@ impl<E: Pairing> CRS<E> {
             ali_minus0,
             ali_x,
             ali_lj_z,
+            li_g2,
+            li_minus0_g2,
+            li_x_g2,
+            li_lj_z_g2,
+            ali_g2,
+            ali_minus0_g2,
+            ali_x_g2,
+            ali_lj_z_g2,
         }
     }
 

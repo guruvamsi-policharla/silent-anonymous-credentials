@@ -34,6 +34,56 @@ pub struct Sig<E: Pairing> {
     pub s4: E::G1,
 }
 
+impl<E: Pairing> Hints<E> {
+    pub fn verify(&self, vk: &VK<E>, crs: &CRS<E>) {
+        let lhs = E::pairing(self.ka_li[0], E::G2::generator());
+        let rhs = E::pairing(vk.vk[0], crs.li_g2[self.id]);
+        assert!(lhs == rhs);
+
+        let lhs = E::pairing(self.ka_li[1], E::G2::generator());
+        let rhs = E::pairing(vk.vk[1], crs.li_g2[self.id]);
+        assert!(lhs == rhs);
+
+        ////
+        let lhs = E::pairing(self.ka_li_minus0[0], E::G2::generator());
+        let rhs = E::pairing(vk.vk[0], crs.li_minus0_g2[self.id]);
+        assert!(lhs == rhs);
+
+        let lhs = E::pairing(self.ka_li_minus0[1], E::G2::generator());
+        let rhs = E::pairing(vk.vk[1], crs.li_minus0_g2[self.id]);
+        assert!(lhs == rhs);
+
+        ////
+        let lhs = E::pairing(self.ka_li_x[0], E::G2::generator());
+        let rhs = E::pairing(vk.vk[0], crs.li_x_g2[self.id]);
+        assert!(lhs == rhs);
+
+        let lhs = E::pairing(self.ka_li_x[1], E::G2::generator());
+        let rhs = E::pairing(vk.vk[1], crs.li_x_g2[self.id]);
+        assert!(lhs == rhs);
+
+        ////
+        for j in 0..crs.n {
+            let lhs = E::pairing(self.ka_li_lj_z[j][0], E::G2::generator());
+            let rhs = E::pairing(vk.vk[0], crs.li_lj_z_g2[self.id][j]);
+            assert!(lhs == rhs);
+
+            let lhs = E::pairing(self.ka_li_lj_z[j][1], E::G2::generator());
+            let rhs = E::pairing(vk.vk[1], crs.li_lj_z_g2[self.id][j]);
+            assert!(lhs == rhs);
+        }
+
+        ////
+        let lhs = E::pairing(self.ka_taun[0], E::G2::generator());
+        let rhs = E::pairing(vk.vk[0], crs.powers_of_h[crs.n]);
+        assert!(lhs == rhs);
+
+        let lhs = E::pairing(self.ka_taun[1], E::G2::generator());
+        let rhs = E::pairing(vk.vk[1], crs.powers_of_h[crs.n]);
+        assert!(lhs == rhs);
+    }
+}
+
 impl<E: Pairing> SK<E> {
     pub fn new() -> Self {
         let mut rng = ark_std::test_rng(); //todo: replace with secure rng
@@ -190,10 +240,12 @@ mod tests {
         let n = 1 << 5;
         let crs = CRS::<E>::new(n);
         let sk = SK::<E>::new();
-        let (vk, _hints) = sk.get_pk(&crs, 0);
+        let (vk, hints) = sk.get_pk(&crs, 0);
         let m = G2::rand(&mut ark_std::test_rng());
         let sig = sk.sign(&crs, m);
         sig.verify(&m, &vk, &crs);
+
+        hints.verify(&vk, &crs);
     }
 
     #[test]

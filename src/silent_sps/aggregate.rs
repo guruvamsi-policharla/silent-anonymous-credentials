@@ -41,7 +41,6 @@ impl<E: Pairing> AggregateKey<E> {
     pub fn new(vk: Vec<VK<E>>, hints: Vec<Hints<E>>) -> Self {
         let n = vk.len();
 
-        // gather ka_li from all public keys
         let mut mvk = [E::G1::zero(); 2];
         for i in 0..n {
             mvk[0] += hints[i].ka_li[0];
@@ -239,6 +238,13 @@ impl<E: Pairing> AggregateSig<E> {
         let negh = -E::G2::generator();
 
         // check a1
+        let lhs = E::pairing(mvk[0], self.b);
+        let rhs = E::pairing(self.avk[0], E::G2::generator())
+            + E::pairing(self.qx[0], crs.powers_of_h[1])
+            + E::pairing(self.qz[0], crs.powers_of_h[crs.n] - crs.powers_of_h[0]);
+
+        assert!(lhs == rhs);
+
         // let lhs = [-mvk[0], self.avk[0], self.qx[0], self.qz[0]];
         // let rhs = [
         //     self.b,
