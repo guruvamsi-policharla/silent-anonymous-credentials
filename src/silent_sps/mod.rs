@@ -14,18 +14,11 @@ pub struct SK<E: Pairing> {
 #[derive(Clone, Debug)]
 pub struct VK<E: Pairing> {
     pub vk: [E::G1; 2],
+}
 
-    pub a0_neg: E::G1,
-    pub a1_neg: E::G1,
-
-    pub g1_gen_neg: E::G1,
-
-    pub ua: [E::G1; 2],
-    pub va: [E::G1; 2],
-
-    // hints
+#[derive(Clone, Debug)]
+pub struct Hints<E: Pairing> {
     pub id: usize, // position in the committee of n parties
-
     pub ka_li: [E::G1; 2],
     pub ka_li_minus0: [E::G1; 2],
     pub ka_li_lj_z: Vec<[E::G1; 2]>,
@@ -57,16 +50,11 @@ impl<E: Pairing> SK<E> {
         Self { k }
     }
 
-    pub fn get_pk(&self, crs: &CRS<E>, id: usize) -> VK<E> {
+    pub fn get_pk(&self, crs: &CRS<E>, id: usize) -> (VK<E>, Hints<E>) {
         let ka0 = crs.powers_of_g[0] * self.k[0][0] + crs.a_powers_of_g[0] * self.k[0][1];
         let ka1 = crs.powers_of_g[0] * self.k[1][0] + crs.a_powers_of_g[0] * self.k[1][1];
 
         let vk = [ka0, ka1];
-
-        let a0_neg = -crs.powers_of_g[0].into_group();
-        let a1_neg = -crs.a_powers_of_g[0].into_group();
-
-        let g1_gen_neg = -E::G1::generator();
 
         let ka_li = [
             crs.li[id] * self.k[0][0] + crs.ali[id] * self.k[0][1],
@@ -96,20 +84,17 @@ impl<E: Pairing> SK<E> {
             crs.powers_of_g[crs.n] * self.k[1][0] + crs.a_powers_of_g[crs.n] * self.k[1][1],
         ];
 
-        VK {
-            vk,
-            a0_neg,
-            a1_neg,
-            g1_gen_neg,
-            ua: crs.ua.clone(),
-            va: crs.va.clone(),
-            id,
-            ka_li,
-            ka_li_minus0,
-            ka_li_lj_z,
-            ka_li_x,
-            ka_taun,
-        }
+        (
+            VK { vk },
+            Hints {
+                id,
+                ka_li,
+                ka_li_minus0,
+                ka_li_lj_z,
+                ka_li_x,
+                ka_taun,
+            },
+        )
     }
 
     pub fn sign(&self, crs: &CRS<E>, m: E::G2) -> Sig<E> {
@@ -139,10 +124,17 @@ impl<E: Pairing> SK<E> {
 }
 
 impl<E: Pairing> Sig<E> {
-    pub fn verify(&self, m: &E::G2, vk: &VK<E>) {
+    pub fn verify(&self, m: &E::G2, vk: &VK<E>, crs: &CRS<E>) {
         // check 1
         let lhs = [
-            vk.a0_neg, vk.a1_neg, vk.vk[0], vk.vk[1], vk.ua[0], vk.ua[1], vk.va[0], vk.va[1],
+            -crs.powers_of_g[0].into_group(),
+            -crs.a_powers_of_g[0].into_group(),
+            vk.vk[0],
+            vk.vk[1],
+            crs.ua[0],
+            crs.ua[1],
+            crs.va[0],
+            crs.va[1],
         ];
 
         let rhs = [
@@ -159,7 +151,7 @@ impl<E: Pairing> Sig<E> {
         assert!(E::multi_pairing(lhs, rhs).is_zero());
 
         // check 2
-        let lhs = [self.s4, vk.g1_gen_neg];
+        let lhs = [self.s4, -E::G1::generator()];
         let rhs = [self.s2[0], self.s3[0]];
 
         assert!(E::multi_pairing(lhs, rhs).is_zero());
@@ -198,10 +190,10 @@ mod tests {
         let n = 1 << 5;
         let crs = CRS::<E>::new(n);
         let sk = SK::<E>::new();
-        let vk = sk.get_pk(&crs, 0);
+        let (vk, _hints) = sk.get_pk(&crs, 0);
         let m = G2::rand(&mut ark_std::test_rng());
         let sig = sk.sign(&crs, m);
-        sig.verify(&m, &vk);
+        sig.verify(&m, &vk, &crs);
     }
 
     #[test]
@@ -210,18 +202,18 @@ mod tests {
         let crs = CRS::<E>::new(n);
 
         let sk1 = SK::<E>::new();
-        let vk1 = sk1.get_pk(&crs, 0);
+        let (vk1, _hints1) = sk1.get_pk(&crs, 0);
 
         let sk2 = SK::<E>::new();
-        let vk2 = sk2.get_pk(&crs, 0);
+        let (vk2, _hints2) = sk2.get_pk(&crs, 0);
 
         let m = G2::rand(&mut ark_std::test_rng());
 
         let sig1 = sk1.sign(&crs, m);
         let sig2 = sk2.sign(&crs, m);
 
-        sig1.verify(&m, &vk1);
-        sig2.verify(&m, &vk2);
+        sig1.verify(&m, &vk1, &crs);
+        sig2.verify(&m, &vk2, &crs);
 
         let sig = Sig::<E> {
             s1: [sig1.s1[0] + sig2.s1[0], sig1.s1[1] + sig2.s1[1]],
@@ -232,30 +224,8 @@ mod tests {
 
         let vk = VK::<E> {
             vk: [vk1.vk[0] + vk2.vk[0], vk1.vk[1] + vk2.vk[1]],
-            a0_neg: vk1.a0_neg,
-            a1_neg: vk1.a1_neg,
-            g1_gen_neg: vk1.g1_gen_neg,
-            ua: vk1.ua,
-            va: vk1.va,
-            id: vk1.id,
-
-            // hints not needed for this part, can insert dummy values
-            ka_li: [vk1.ka_li[0] + vk2.ka_li[0], vk1.ka_li[1] + vk2.ka_li[1]],
-            ka_li_minus0: [
-                vk1.ka_li_minus0[0] + vk2.ka_li_minus0[0],
-                vk1.ka_li_minus0[1] + vk2.ka_li_minus0[1],
-            ],
-            ka_li_lj_z: vec![],
-            ka_li_x: [
-                vk1.ka_li_x[0] + vk2.ka_li_x[0],
-                vk1.ka_li_x[1] + vk2.ka_li_x[1],
-            ],
-            ka_taun: [
-                vk1.ka_taun[0] + vk2.ka_taun[0],
-                vk1.ka_taun[1] + vk2.ka_taun[1],
-            ],
         };
 
-        sig.verify(&m, &vk);
+        sig.verify(&m, &vk, &crs);
     }
 }
