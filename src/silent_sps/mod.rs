@@ -1,6 +1,6 @@
 use ark_ec::{pairing::Pairing, AffineRepr, PrimeGroup};
 use ark_ff::PrimeField;
-use ark_std::{UniformRand, Zero};
+use ark_std::{rand::Rng, UniformRand, Zero};
 
 use crate::{crs::CRS, utils::hash_to_bytes};
 
@@ -85,18 +85,10 @@ impl<E: Pairing> Hints<E> {
 }
 
 impl<E: Pairing> SK<E> {
-    pub fn new() -> Self {
-        let mut rng = ark_std::test_rng(); //todo: replace with secure rng
-
+    pub fn new(rng: &mut impl Rng) -> Self {
         let k = [
-            [
-                E::ScalarField::rand(&mut rng),
-                E::ScalarField::rand(&mut rng),
-            ],
-            [
-                E::ScalarField::rand(&mut rng),
-                E::ScalarField::rand(&mut rng),
-            ],
+            [E::ScalarField::rand(rng), E::ScalarField::rand(rng)],
+            [E::ScalarField::rand(rng), E::ScalarField::rand(rng)],
         ];
 
         Self { k }
@@ -149,9 +141,8 @@ impl<E: Pairing> SK<E> {
         )
     }
 
-    pub fn sign(&self, crs: &CRS<E>, m: E::G2) -> Sig<E> {
+    pub fn sign(&self, crs: &CRS<E>, m: E::G2, rng: &mut impl Rng) -> Sig<E> {
         let h = <E::ScalarField as PrimeField>::from_le_bytes_mod_order(&hash_to_bytes(m));
-        let rng = &mut ark_std::test_rng(); //todo: replace with secure rng
         let r = E::ScalarField::rand(rng);
 
         let s1 = [
@@ -219,13 +210,12 @@ impl<E: Pairing> Sig<E> {
 mod tests {
     use super::*;
     use ark_bls12_381::Bls12_381 as E;
-    // use ark_bls12_381::Fr as F;
     use ark_bls12_381::G2Projective as G2;
 
     #[test]
     fn test_crs() {
         let n = 1 << 5;
-        let crs = CRS::<E>::new(n);
+        let crs = CRS::<E>::new(n, &mut ark_std::test_rng());
         assert_eq!(crs.n, n);
         assert_eq!(crs.ua.len(), 2);
         assert_eq!(crs.va.len(), 2);
@@ -240,11 +230,11 @@ mod tests {
     #[test]
     fn test_signing() {
         let n = 1 << 5;
-        let crs = CRS::<E>::new(n);
-        let sk = SK::<E>::new();
+        let crs = CRS::<E>::new(n, &mut ark_std::test_rng());
+        let sk = SK::<E>::new(&mut ark_std::test_rng());
         let (vk, hints) = sk.get_pk(&crs, 0);
         let m = G2::rand(&mut ark_std::test_rng());
-        let sig = sk.sign(&crs, m);
+        let sig = sk.sign(&crs, m, &mut ark_std::test_rng());
         sig.verify(&m, &vk, &crs);
 
         hints.verify(&vk, &crs);
@@ -253,18 +243,18 @@ mod tests {
     #[test]
     fn test_aggregation() {
         let n = 1 << 5;
-        let crs = CRS::<E>::new(n);
+        let crs = CRS::<E>::new(n, &mut ark_std::test_rng());
 
-        let sk1 = SK::<E>::new();
+        let sk1 = SK::<E>::new(&mut ark_std::test_rng());
         let (vk1, _hints1) = sk1.get_pk(&crs, 0);
 
-        let sk2 = SK::<E>::new();
+        let sk2 = SK::<E>::new(&mut ark_std::test_rng());
         let (vk2, _hints2) = sk2.get_pk(&crs, 0);
 
         let m = G2::rand(&mut ark_std::test_rng());
 
-        let sig1 = sk1.sign(&crs, m);
-        let sig2 = sk2.sign(&crs, m);
+        let sig1 = sk1.sign(&crs, m, &mut ark_std::test_rng());
+        let sig2 = sk2.sign(&crs, m, &mut ark_std::test_rng());
 
         sig1.verify(&m, &vk1, &crs);
         sig2.verify(&m, &vk2, &crs);

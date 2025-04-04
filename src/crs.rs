@@ -1,10 +1,10 @@
+use crate::utils::lagrange_poly;
 use ark_ec::{pairing::Pairing, ScalarMul};
 use ark_ec::{PrimeGroup, VariableBaseMSM};
 use ark_ff::{Field, PrimeField};
 use ark_poly::Polynomial;
+use ark_std::rand::Rng;
 use ark_std::{One, UniformRand, Zero};
-
-use crate::utils::lagrange_poly;
 
 #[derive(Clone, Debug)]
 pub struct CRS<E: Pairing> {
@@ -42,29 +42,16 @@ pub struct CRS<E: Pairing> {
 }
 
 impl<E: Pairing> CRS<E> {
-    pub fn new(n: usize) -> Self {
-        let mut rng = ark_std::test_rng(); //todo: replace with secure rng
-        let a = [E::ScalarField::one(), E::ScalarField::rand(&mut rng)];
-        let b_f = [E::ScalarField::one(), E::ScalarField::rand(&mut rng)];
+    pub fn new(n: usize, rng: &mut impl Rng) -> Self {
+        let a = [E::ScalarField::one(), E::ScalarField::rand(rng)];
+        let b_f = [E::ScalarField::one(), E::ScalarField::rand(rng)];
         let u = [
-            [
-                E::ScalarField::rand(&mut rng),
-                E::ScalarField::rand(&mut rng),
-            ],
-            [
-                E::ScalarField::rand(&mut rng),
-                E::ScalarField::rand(&mut rng),
-            ],
+            [E::ScalarField::rand(rng), E::ScalarField::rand(rng)],
+            [E::ScalarField::rand(rng), E::ScalarField::rand(rng)],
         ];
         let v = [
-            [
-                E::ScalarField::rand(&mut rng),
-                E::ScalarField::rand(&mut rng),
-            ],
-            [
-                E::ScalarField::rand(&mut rng),
-                E::ScalarField::rand(&mut rng),
-            ],
+            [E::ScalarField::rand(rng), E::ScalarField::rand(rng)],
+            [E::ScalarField::rand(rng), E::ScalarField::rand(rng)],
         ];
 
         let ua = [
@@ -90,7 +77,7 @@ impl<E: Pairing> CRS<E> {
         ];
 
         // powers of tau
-        let tau = E::ScalarField::rand(&mut rng);
+        let tau = E::ScalarField::rand(rng);
 
         let mut powers_of_tau = vec![E::ScalarField::one()];
 

@@ -178,7 +178,14 @@ impl<E: Pairing> AggregateKey<E> {
         ];
 
         // s4
-        let s4 = partial_sigs[0].s4.clone();
+        // find the first party that signed using selector and use its s4
+        let mut s4 = E::G1::zero();
+        for i in 0..crs.n {
+            if selector[i] {
+                s4 = partial_sigs[i].s4;
+                break;
+            }
+        }
 
         // compute Qx, Qhatx and Qz
         // Qx
@@ -240,20 +247,6 @@ impl<E: Pairing> AggregateSig<E> {
         let negh = -E::G2::generator();
 
         // check a1
-        let lhs = E::pairing(mvk[0], self.b);
-        let rhs = E::pairing(self.avk[0], E::G2::generator())
-            + E::pairing(self.qx[0], crs.powers_of_h[1])
-            + E::pairing(self.qz[0], crs.powers_of_h[crs.n] - crs.powers_of_h[0]);
-
-        assert!(lhs == rhs);
-
-        let lhs = E::pairing(mvk[1], self.b);
-        let rhs = E::pairing(self.avk[1], E::G2::generator())
-            + E::pairing(self.qx[1], crs.powers_of_h[1])
-            + E::pairing(self.qz[1], crs.powers_of_h[crs.n] - crs.powers_of_h[0]);
-
-        assert!(lhs == rhs);
-
         let lhs = [-mvk[0], self.avk[0], self.qx[0], self.qz[0]];
         let rhs = [
             self.b,
@@ -323,9 +316,9 @@ mod tests {
 
     #[test]
     fn test_aggregation() {
-        let n = 1 << 3;
+        let n = 1 << 4;
         let t = n / 2;
-        let crs = CRS::<E>::new(n);
+        let crs = CRS::<E>::new(n, &mut ark_std::test_rng());
         let mut sk = Vec::new();
         let mut vk = Vec::new();
         let mut hints = Vec::new();
@@ -333,22 +326,22 @@ mod tests {
 
         let m = G2::rand(&mut ark_std::test_rng());
         for i in 0..n {
-            sk.push(SK::<E>::new());
+            sk.push(SK::<E>::new(&mut ark_std::test_rng()));
             let (vki, hinti) = sk[i].get_pk(&crs, i);
-            // hinti.verify(&vki, &crs);
+            hinti.verify(&vki, &crs);
             vk.push(vki);
             hints.push(hinti);
         }
 
         let mut selector = vec![false; n];
 
-        for i in 0..t {
+        for i in 1..t + 1 {
             selector[i] = true;
         }
 
         for i in 0..n {
             if selector[i] {
-                partial_sigs.push(sk[i].sign(&crs, m));
+                partial_sigs.push(sk[i].sign(&crs, m, &mut ark_std::test_rng()));
             } else {
                 partial_sigs.push(Sig {
                     s1: [G2::zero(), G2::zero()],
