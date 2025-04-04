@@ -33,7 +33,7 @@ pub struct VK<E: Pairing> {
     pub ka_taun: [E::G1; 2],
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 pub struct Sig<E: Pairing> {
     pub s1: [E::G2; 2],
     pub s2: [E::G2; 2],
@@ -138,50 +138,36 @@ impl<E: Pairing> SK<E> {
     }
 }
 
-impl<E: Pairing> VK<E> {
-    pub fn verify(&self, m: &E::G2, sig: &Sig<E>) {
+impl<E: Pairing> Sig<E> {
+    pub fn verify(&self, m: &E::G2, vk: &VK<E>) {
         // check 1
         let lhs = [
-            self.a0_neg,
-            self.a1_neg,
-            self.vk[0],
-            self.vk[1],
-            self.ua[0],
-            self.ua[1],
-            self.va[0],
-            self.va[1],
+            vk.a0_neg, vk.a1_neg, vk.vk[0], vk.vk[1], vk.ua[0], vk.ua[1], vk.va[0], vk.va[1],
         ];
 
         let rhs = [
-            sig.s1[0],
-            sig.s1[1],
+            self.s1[0],
+            self.s1[1],
             E::G2::generator(),
             m.clone(),
-            sig.s2[0],
-            sig.s2[1],
-            sig.s3[0],
-            sig.s3[1],
+            self.s2[0],
+            self.s2[1],
+            self.s3[0],
+            self.s3[1],
         ];
 
-        let should_be_zero = E::multi_miller_loop(lhs, rhs);
-        let should_be_zero = E::final_exponentiation(should_be_zero).unwrap();
-
-        assert!(should_be_zero.is_zero());
+        assert!(E::multi_pairing(lhs, rhs).is_zero());
 
         // check 2
-        let lhs = [sig.s4, self.g1_gen_neg];
-        let rhs = [sig.s2[0], sig.s3[0]];
+        let lhs = [self.s4, vk.g1_gen_neg];
+        let rhs = [self.s2[0], self.s3[0]];
 
-        let should_be_zero = E::multi_miller_loop(lhs, rhs);
-        let should_be_zero = E::final_exponentiation(should_be_zero).unwrap();
-        assert!(should_be_zero.is_zero());
+        assert!(E::multi_pairing(lhs, rhs).is_zero());
 
         // check 3
-        let rhs = [sig.s2[1], sig.s3[1]];
+        let rhs = [self.s2[1], self.s3[1]];
 
-        let should_be_zero = E::multi_miller_loop(lhs, rhs);
-        let should_be_zero = E::final_exponentiation(should_be_zero).unwrap();
-        assert!(should_be_zero.is_zero());
+        assert!(E::multi_pairing(lhs, rhs).is_zero());
     }
 }
 
@@ -215,18 +201,61 @@ mod tests {
         let vk = sk.get_pk(&crs, 0);
         let m = G2::rand(&mut ark_std::test_rng());
         let sig = sk.sign(&crs, m);
-        vk.verify(&m, &sig);
+        sig.verify(&m, &vk);
     }
 
     #[test]
     fn test_aggregation() {
         let n = 1 << 5;
         let crs = CRS::<E>::new(n);
-        let mut sk = Vec::new();
-        let mut vk = Vec::new();
-        for i in 0..n {
-            sk.push(SK::<E>::new());
-            vk.push(sk[i].get_pk(&crs, i));
-        }
+
+        let sk1 = SK::<E>::new();
+        let vk1 = sk1.get_pk(&crs, 0);
+
+        let sk2 = SK::<E>::new();
+        let vk2 = sk2.get_pk(&crs, 0);
+
+        let m = G2::rand(&mut ark_std::test_rng());
+
+        let sig1 = sk1.sign(&crs, m);
+        let sig2 = sk2.sign(&crs, m);
+
+        sig1.verify(&m, &vk1);
+        sig2.verify(&m, &vk2);
+
+        let sig = Sig::<E> {
+            s1: [sig1.s1[0] + sig2.s1[0], sig1.s1[1] + sig2.s1[1]],
+            s2: [sig1.s2[0] + sig2.s2[0], sig1.s2[1] + sig2.s2[1]],
+            s3: [sig1.s3[0] + sig2.s3[0], sig1.s3[1] + sig2.s3[1]],
+            s4: sig1.s4,
+        };
+
+        let vk = VK::<E> {
+            vk: [vk1.vk[0] + vk2.vk[0], vk1.vk[1] + vk2.vk[1]],
+            a0_neg: vk1.a0_neg,
+            a1_neg: vk1.a1_neg,
+            g1_gen_neg: vk1.g1_gen_neg,
+            ua: vk1.ua,
+            va: vk1.va,
+            id: vk1.id,
+
+            // hints not needed for this part, can insert dummy values
+            ka_li: [vk1.ka_li[0] + vk2.ka_li[0], vk1.ka_li[1] + vk2.ka_li[1]],
+            ka_li_minus0: [
+                vk1.ka_li_minus0[0] + vk2.ka_li_minus0[0],
+                vk1.ka_li_minus0[1] + vk2.ka_li_minus0[1],
+            ],
+            ka_li_lj_z: vec![],
+            ka_li_x: [
+                vk1.ka_li_x[0] + vk2.ka_li_x[0],
+                vk1.ka_li_x[1] + vk2.ka_li_x[1],
+            ],
+            ka_taun: [
+                vk1.ka_taun[0] + vk2.ka_taun[0],
+                vk1.ka_taun[1] + vk2.ka_taun[1],
+            ],
+        };
+
+        sig.verify(&m, &vk);
     }
 }

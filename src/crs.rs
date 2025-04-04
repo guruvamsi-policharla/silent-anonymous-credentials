@@ -103,14 +103,14 @@ impl<E: Pairing> CRS<E> {
         let mut li_evals_minus0: Vec<E::ScalarField> = vec![E::ScalarField::zero(); n];
         let mut li_evals_x: Vec<E::ScalarField> = vec![E::ScalarField::zero(); n];
 
-        let tau_inv = tau.inverse().unwrap();
+        let tau2_inv: <E as Pairing>::ScalarField = (tau * tau).inverse().unwrap();
         for i in 0..n {
             let li = lagrange_poly(n, i);
             li_evals[i] = li.evaluate(&tau);
 
-            li_evals_minus0[i] = li_evals[i] - li.coeffs[0];
+            li_evals_minus0[i] = (li_evals[i] - li.coeffs[0]) * tau;
 
-            li_evals_x[i] = li_evals_minus0[i] * tau_inv;
+            li_evals_x[i] = li_evals_minus0[i] * tau2_inv;
         }
 
         let z_eval = tau.pow(&[n as u64]) - E::ScalarField::one();

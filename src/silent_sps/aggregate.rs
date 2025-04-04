@@ -1,6 +1,7 @@
 use super::{Sig, VK};
 use crate::{crs::CRS, utils::compute_vanishing_poly};
 use ark_ec::pairing::Pairing;
+use ark_ec::PrimeGroup;
 use ark_ec::VariableBaseMSM;
 use ark_poly::{
     univariate::DensePolynomial, DenseUVPolynomial, EvaluationDomain, Polynomial,
@@ -40,9 +41,9 @@ impl<E: Pairing> AggregateKey<E> {
 
         // gather ka_li from all public keys
         let mut mvk = [E::G1::zero(); 2];
-        for vki in vk.iter() {
-            mvk[0] += vki.ka_li[0];
-            mvk[1] += vki.ka_li[1];
+        for i in 0..n {
+            mvk[0] += vk[i].ka_li[0];
+            mvk[1] += vk[i].ka_li[1];
         }
 
         let mut agg_ka_li_lj_z = vec![];
@@ -68,6 +69,7 @@ impl<E: Pairing> AggregateKey<E> {
         &self,
         partial_sigs: &Vec<Sig<E>>,
         selector: &[bool],
+        m: E::G2,
         crs: CRS<E>,
     ) -> AggregateSig<E> {
         let domain = Radix2EvaluationDomain::<E::ScalarField>::new(crs.n).unwrap();
@@ -115,7 +117,7 @@ impl<E: Pairing> AggregateKey<E> {
 
         let bhat_g1 = crs.commit_g1(&bhat.coeffs);
 
-        let n_inv = E::ScalarField::one() / E::ScalarField::from(crs.n as u64);
+        let n_inv = E::ScalarField::one();
 
         // compute the aggregate verification key
         let mut bases: Vec<Vec<<E as Pairing>::G1Affine>> = vec![Vec::new(), Vec::new()];
@@ -231,6 +233,83 @@ impl<E: Pairing> AggregateKey<E> {
     }
 }
 
+impl<E: Pairing> AggregateSig<E> {
+    pub fn verify(&self, m: E::G2, t: usize, mvk: &[E::G1; 2], crs: CRS<E>, temp_vk: VK<E>) {
+        let negg = -E::G1::generator();
+        let negh = -E::G2::generator();
+
+        // check a1
+        // let lhs = [-mvk[0], self.avk[0], self.qx[0], self.qz[0]];
+        let rhs = [
+            self.b,
+            E::G2::generator(),
+            crs.powers_of_h[1].into(),
+            crs.powers_of_h[crs.n] - crs.powers_of_h[0],
+        ];
+        // assert!(E::multi_pairing(lhs, rhs).is_zero());
+
+        // check a2
+        // let lhs = [-mvk[1], self.avk[1], self.qx[1], self.qz[1]];
+        // assert!(E::multi_pairing(lhs, rhs).is_zero());
+
+        // check b
+        let lhs = [crs.powers_of_g[t].into(), self.bhat];
+        let rhs = [self.b, negh];
+        assert!(E::multi_pairing(lhs, rhs).is_zero());
+
+        // check c
+        let lhs = [negg, self.q0, E::G1::generator()];
+        let rhs = [self.b, crs.powers_of_h[1].into(), E::G2::generator()];
+        assert!(E::multi_pairing(lhs, rhs).is_zero());
+
+        // check d
+        let lhs = [self.avk_hat[0], self.avk[0]];
+        let rhs = [negh, crs.powers_of_h[crs.n].into()];
+        assert!(E::multi_pairing(lhs, rhs).is_zero());
+
+        let lhs = [self.avk_hat[1], self.avk[1]];
+        let rhs = [negh, crs.powers_of_h[crs.n].into()];
+        assert!(E::multi_pairing(lhs, rhs).is_zero());
+
+        // check e
+        let lhs = [self.qx[0], self.qxhat[0]];
+        let rhs: [<E as Pairing>::G2; 2] = [crs.powers_of_h[2].into(), negh];
+        assert!(E::multi_pairing(lhs, rhs).is_zero());
+
+        let lhs = [self.qx[1], self.qxhat[1]];
+        let rhs = [crs.powers_of_h[2].into(), negh];
+        assert!(E::multi_pairing(lhs, rhs).is_zero());
+
+        // check f, g
+
+        // debugging
+        let sps_sig = Sig::<E> {
+            s1: self.s1,
+            s2: self.s2,
+            s3: self.s3,
+            s4: self.s4,
+        };
+        let agg_vk = VK::<E> {
+            vk: self.avk,
+            a0_neg: temp_vk.a0_neg,
+            a1_neg: temp_vk.a1_neg,
+            g1_gen_neg: temp_vk.g1_gen_neg,
+            ua: temp_vk.ua,
+            va: temp_vk.va,
+            id: temp_vk.id,
+
+            // hints not needed for this part, can insert dummy values
+            ka_li: [temp_vk.ka_li[0], temp_vk.ka_li[1]],
+            ka_li_minus0: [temp_vk.ka_li_minus0[0], temp_vk.ka_li_minus0[1]],
+            ka_li_lj_z: vec![],
+            ka_li_x: [temp_vk.ka_li_x[0], temp_vk.ka_li_x[1]],
+            ka_taun: [temp_vk.ka_taun[0], temp_vk.ka_taun[1]],
+        };
+
+        sps_sig.verify(&m, &agg_vk);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::crs::CRS;
@@ -249,6 +328,7 @@ mod tests {
     #[test]
     fn test_aggregation() {
         let n = 1 << 5;
+        let t = n / 2;
         let crs = CRS::<E>::new(n);
         let mut sk = Vec::new();
         let mut vk = Vec::new();
@@ -257,15 +337,15 @@ mod tests {
         let m = G2::rand(&mut ark_std::test_rng());
         for i in 0..n {
             sk.push(SK::<E>::new());
-            vk.push(sk[i].get_pk(&crs, i));
+            vk.push(sk[0].get_pk(&crs, i));
         }
 
         let mut selector = vec![false; n];
-        let mut rng = ark_std::test_rng();
-        let mut indices: Vec<usize> = (0..n).collect();
-        indices.shuffle(&mut rng);
+        // let mut rng = ark_std::test_rng();
+        // let mut indices: Vec<usize> = (0..n).collect();
+        // indices.shuffle(&mut rng);
 
-        for &i in indices.iter().take(n / 2) {
+        for i in 0..t {
             selector[i] = true;
         }
 
@@ -282,7 +362,16 @@ mod tests {
             }
         }
 
+        for i in 0..n {
+            if selector[i] {
+                partial_sigs[i].verify(&m, &vk[i]);
+            }
+        }
+
         let agg_key = AggregateKey::<E>::new(vk.clone());
-        let agg_sig = agg_key.agg_sig(&partial_sigs, &selector, crs.clone());
+        let agg_sig = agg_key.agg_sig(&partial_sigs, &selector, m, crs.clone());
+
+        // verify
+        agg_sig.verify(m, t, &agg_key.mvk, crs.clone(), vk[0].clone());
     }
 }

@@ -1,4 +1,4 @@
-use ark_ff::{FftField, Field};
+use ark_ff::FftField;
 use ark_poly::{
     univariate::DensePolynomial, DenseUVPolynomial, EvaluationDomain, Evaluations, Polynomial,
     Radix2EvaluationDomain,
