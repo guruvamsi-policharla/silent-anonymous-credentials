@@ -259,3 +259,49 @@ impl<E: Pairing> CRS<E> {
         )
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use ark_bls12_381::Fr as F;
+    use ark_poly::EvaluationDomain;
+    use ark_poly::Polynomial;
+    use ark_poly::Radix2EvaluationDomain;
+    use ark_poly::{univariate::DensePolynomial, DenseUVPolynomial};
+    use ark_std::UniformRand;
+    use ark_std::Zero;
+
+    #[test]
+    fn test_sumcheck() {
+        // A(X).B(X) = \sum_i A(i).B(i) + X * Q_x(X) + Z(X) * Q_Z(X)
+        let rng = &mut ark_std::test_rng();
+
+        let n = 1 << 5;
+        let domain = Radix2EvaluationDomain::<F>::new(n).unwrap();
+
+        // sample n random evals
+        let a_evals = (0..n).map(|_| F::rand(rng)).collect::<Vec<_>>();
+        let b_evals = (0..n).map(|_| F::rand(rng)).collect::<Vec<_>>();
+        let mut s = F::zero();
+        for i in 0..n {
+            s += a_evals[i] * b_evals[i];
+        }
+
+        let a_coeffs = domain.ifft(&a_evals);
+        let b_coeffs = domain.ifft(&b_evals);
+
+        let a_poly = DensePolynomial::from_coefficients_vec(a_coeffs);
+        let b_poly = DensePolynomial::from_coefficients_vec(b_coeffs);
+
+        let c_poly = &a_poly * &b_poly;
+
+        println!("a_poly deg: {}", a_poly.degree());
+        println!("b_poly deg: {}", b_poly.degree());
+        println!("c_poly deg: {}", c_poly.degree());
+
+        let (qz, rem) = c_poly.divide_by_vanishing_poly(domain);
+        println!("qz deg: {}", qz.degree());
+        println!("rem deg: {}", rem.degree());
+
+        assert_eq!(s / F::from(n as u64), rem.evaluate(&F::zero()));
+    }
+}

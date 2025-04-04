@@ -119,6 +119,8 @@ impl<E: Pairing> AggregateKey<E> {
         let bhat_g1 = crs.commit_g1(&bhat.coeffs);
 
         // compute the aggregate verification key
+        let n_inv = E::ScalarField::one() / E::ScalarField::from(crs.n as u64);
+
         let mut bases: Vec<Vec<<E as Pairing>::G1Affine>> = vec![Vec::new(), Vec::new()];
         let mut scalars: Vec<<E as Pairing>::ScalarField> = Vec::new();
         for &i in &parties {
@@ -127,8 +129,8 @@ impl<E: Pairing> AggregateKey<E> {
             scalars.push(b_evals[i]);
         }
         let avk = [
-            E::G1::msm(bases[0].as_slice(), scalars.as_slice()).unwrap(),
-            E::G1::msm(bases[1].as_slice(), scalars.as_slice()).unwrap(),
+            E::G1::msm(bases[0].as_slice(), scalars.as_slice()).unwrap() * n_inv,
+            E::G1::msm(bases[1].as_slice(), scalars.as_slice()).unwrap() * n_inv,
         ];
 
         let mut bases: Vec<Vec<<E as Pairing>::G1Affine>> = vec![Vec::new(), Vec::new()];
@@ -137,8 +139,8 @@ impl<E: Pairing> AggregateKey<E> {
             bases[1].push(self.hints[i].ka_taun[1].into());
         }
         let avk_hat = [
-            E::G1::msm(bases[0].as_slice(), scalars.as_slice()).unwrap(),
-            E::G1::msm(bases[1].as_slice(), scalars.as_slice()).unwrap(),
+            E::G1::msm(bases[0].as_slice(), scalars.as_slice()).unwrap() * n_inv,
+            E::G1::msm(bases[1].as_slice(), scalars.as_slice()).unwrap() * n_inv,
         ];
 
         // aggregate the individual signatures
@@ -149,8 +151,8 @@ impl<E: Pairing> AggregateKey<E> {
             bases[1].push(partial_sigs[i].s1[1].into());
         }
         let s1 = [
-            E::G2::msm(bases[0].as_slice(), scalars.as_slice()).unwrap(),
-            E::G2::msm(bases[1].as_slice(), scalars.as_slice()).unwrap(),
+            E::G2::msm(bases[0].as_slice(), scalars.as_slice()).unwrap() * n_inv,
+            E::G2::msm(bases[1].as_slice(), scalars.as_slice()).unwrap() * n_inv,
         ];
 
         // s2
@@ -160,8 +162,8 @@ impl<E: Pairing> AggregateKey<E> {
             bases[1].push(partial_sigs[i].s2[1].into());
         }
         let s2 = [
-            E::G2::msm(bases[0].as_slice(), scalars.as_slice()).unwrap(),
-            E::G2::msm(bases[1].as_slice(), scalars.as_slice()).unwrap(),
+            E::G2::msm(bases[0].as_slice(), scalars.as_slice()).unwrap() * n_inv,
+            E::G2::msm(bases[1].as_slice(), scalars.as_slice()).unwrap() * n_inv,
         ];
 
         // s3
@@ -171,8 +173,8 @@ impl<E: Pairing> AggregateKey<E> {
             bases[1].push(partial_sigs[i].s3[1].into());
         }
         let s3 = [
-            E::G2::msm(bases[0].as_slice(), scalars.as_slice()).unwrap(),
-            E::G2::msm(bases[1].as_slice(), scalars.as_slice()).unwrap(),
+            E::G2::msm(bases[0].as_slice(), scalars.as_slice()).unwrap() * n_inv,
+            E::G2::msm(bases[1].as_slice(), scalars.as_slice()).unwrap() * n_inv,
         ];
 
         // s4
@@ -245,18 +247,25 @@ impl<E: Pairing> AggregateSig<E> {
 
         assert!(lhs == rhs);
 
-        // let lhs = [-mvk[0], self.avk[0], self.qx[0], self.qz[0]];
-        // let rhs = [
-        //     self.b,
-        //     E::G2::generator(),
-        //     crs.powers_of_h[1].into(),
-        //     crs.powers_of_h[crs.n] - crs.powers_of_h[0],
-        // ];
-        // assert!(E::multi_pairing(lhs, rhs).is_zero());
+        let lhs = E::pairing(mvk[1], self.b);
+        let rhs = E::pairing(self.avk[1], E::G2::generator())
+            + E::pairing(self.qx[1], crs.powers_of_h[1])
+            + E::pairing(self.qz[1], crs.powers_of_h[crs.n] - crs.powers_of_h[0]);
+
+        assert!(lhs == rhs);
+
+        let lhs = [-mvk[0], self.avk[0], self.qx[0], self.qz[0]];
+        let rhs = [
+            self.b,
+            E::G2::generator(),
+            crs.powers_of_h[1].into(),
+            crs.powers_of_h[crs.n] - crs.powers_of_h[0],
+        ];
+        assert!(E::multi_pairing(lhs, rhs).is_zero());
 
         // check a2
-        // let lhs = [-mvk[1], self.avk[1], self.qx[1], self.qz[1]];
-        // assert!(E::multi_pairing(lhs, rhs).is_zero());
+        let lhs = [-mvk[1], self.avk[1], self.qx[1], self.qz[1]];
+        assert!(E::multi_pairing(lhs, rhs).is_zero());
 
         // check b
         let lhs = [crs.powers_of_g[t].into(), self.bhat];
@@ -314,7 +323,7 @@ mod tests {
 
     #[test]
     fn test_aggregation() {
-        let n = 1 << 5;
+        let n = 1 << 3;
         let t = n / 2;
         let crs = CRS::<E>::new(n);
         let mut sk = Vec::new();
@@ -326,6 +335,7 @@ mod tests {
         for i in 0..n {
             sk.push(SK::<E>::new());
             let (vki, hinti) = sk[i].get_pk(&crs, i);
+            // hinti.verify(&vki, &crs);
             vk.push(vki);
             hints.push(hinti);
         }

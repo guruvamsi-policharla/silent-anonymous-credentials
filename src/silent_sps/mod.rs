@@ -87,6 +87,7 @@ impl<E: Pairing> Hints<E> {
 impl<E: Pairing> SK<E> {
     pub fn new() -> Self {
         let mut rng = ark_std::test_rng(); //todo: replace with secure rng
+
         let k = [
             [
                 E::ScalarField::rand(&mut rng),
@@ -97,6 +98,7 @@ impl<E: Pairing> SK<E> {
                 E::ScalarField::rand(&mut rng),
             ],
         ];
+
         Self { k }
     }
 
