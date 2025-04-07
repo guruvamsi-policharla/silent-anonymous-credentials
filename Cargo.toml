@@ -19,3 +19,15 @@ asm = ["ark-ff/asm"]
 
 [profile.dev]
 opt-level = 3
+
+[[bench]]
+name = "sign"
+harness = false
+
+[[bench]]
+name = "agg_sig"
+harness = false
+
+[[bench]]
+name = "agg_sig_verify"
+harness = false
