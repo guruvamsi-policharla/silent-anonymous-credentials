@@ -25,16 +25,14 @@ pub struct AggregateSig<E: Pairing> {
     pub s3: [E::G2; 2],
     pub s4: E::G1,
 
-    pub avk: [E::G1; 2],
-    pub avk_hat: [E::G1; 2],
-
     pub b: E::G2,
-    pub bhat: E::G1,
-
+    pub avk: [E::G1; 2],
     pub qx: [E::G1; 2],
-    pub qxhat: [E::G1; 2],
     pub qz: [E::G1; 2],
+    pub bhat: E::G1,
     pub q0: E::G1,
+    pub avk_hat: [E::G1; 2],
+    pub qxhat: [E::G1; 2],
 }
 
 impl<E: Pairing> AggregateKey<E> {

@@ -2,7 +2,8 @@ use crate::utils::lagrange_poly;
 use ark_ec::{pairing::Pairing, ScalarMul};
 use ark_ec::{PrimeGroup, VariableBaseMSM};
 use ark_ff::{Field, PrimeField};
-use ark_poly::Polynomial;
+use ark_poly::univariate::DensePolynomial;
+use ark_poly::{DenseUVPolynomial, Polynomial};
 use ark_std::rand::Rng;
 use ark_std::{One, UniformRand, Zero};
 
@@ -245,11 +246,36 @@ impl<E: Pairing> CRS<E> {
             plain_coeffs.as_slice(),
         )
     }
+
+    pub fn compute_opening_proof(
+        &self,
+        coeffs: &Vec<E::ScalarField>,
+        point: &E::ScalarField,
+    ) -> E::G1 {
+        let polynomial = DensePolynomial::from_coefficients_slice(&coeffs);
+        let eval = polynomial.evaluate(point);
+
+        let mut numerator = polynomial.clone();
+        numerator.coeffs[0] -= eval;
+
+        let divisor = DensePolynomial::from_coefficients_vec(vec![
+            E::ScalarField::zero() - point,
+            E::ScalarField::one(),
+        ]);
+        let witness_polynomial = &numerator / &divisor;
+
+        self.commit_g1(&witness_polynomial.coeffs)
+    }
 }
 
 #[cfg(test)]
 mod tests {
+    use ark_bls12_381::Bls12_381 as E;
     use ark_bls12_381::Fr as F;
+    use ark_bls12_381::G1Projective as G1;
+    use ark_bls12_381::G2Projective as G2;
+    use ark_ec::pairing::Pairing;
+    use ark_ec::PrimeGroup;
     use ark_poly::EvaluationDomain;
     use ark_poly::Polynomial;
     use ark_poly::Radix2EvaluationDomain;
@@ -290,5 +316,27 @@ mod tests {
         println!("rem deg: {}", rem.degree());
 
         assert_eq!(s / F::from(n as u64), rem.evaluate(&F::zero()));
+    }
+
+    #[test]
+    fn test_kzg() {
+        // A(X).B(X) = \sum_i A(i).B(i) + X * Q_x(X) + Z(X) * Q_Z(X)
+        let rng = &mut ark_std::test_rng();
+
+        let n = 1 << 3;
+        let crs = crate::crs::CRS::<E>::new(n, rng);
+
+        // sample n random coeffs
+        let coeffs = (0..n).map(|_| F::rand(rng)).collect::<Vec<_>>();
+        let com = crs.commit_g1(&coeffs);
+
+        let point = F::rand(rng);
+        let eval = DensePolynomial::from_coefficients_slice(&coeffs).evaluate(&point);
+
+        let pi = crs.compute_opening_proof(&coeffs, &point);
+
+        let lhs = E::pairing(com + (G1::generator() * (-eval)), G2::generator());
+        let rhs = E::pairing(pi, crs.powers_of_h[1] - (G2::generator() * point));
+        assert_eq!(lhs, rhs);
     }
 }
