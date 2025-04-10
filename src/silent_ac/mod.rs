@@ -2,7 +2,6 @@ use ark_ec::pairing::{Pairing, PairingOutput};
 use ark_ec::PrimeGroup;
 use ark_std::rand::Rng;
 use ark_std::UniformRand;
-use ark_std::Zero;
 
 use crate::crs::CRS;
 use crate::silent_sps::aggregate::AggregateKey;
@@ -22,7 +21,7 @@ pub struct ShowCRS<E: Pairing> {
     pub com_att: E::G1,
     pub pi: E::G2,
 
-    pub y: PairingOutput<E>,
+    pub rhs: PairingOutput<E>,
 }
 
 // b = s_0 \cdot \bfvk[0] + s_1 \cdot \bfvk[1] + s_2 \cdot [\tau^{t}]_2 + s_3 \cdot [1]_2
@@ -99,7 +98,7 @@ impl<E: Pairing> ShowCRS<E> {
 
         let pi = -((crs.powers_of_h[1] - (E::G2::generator() * x)) * s[9]);
 
-        let y = E::pairing(E::G1::generator() * (s[9] * y), E::G2::generator())
+        let rhs = E::pairing(E::G1::generator() * (s[9] * y), E::G2::generator())
             + E::pairing(E::G1::generator() * s[3], E::G2::generator());
 
         ShowCRS {
@@ -113,7 +112,7 @@ impl<E: Pairing> ShowCRS<E> {
             q0,
             com_att,
             pi,
-            y,
+            rhs,
         }
     }
 }
@@ -134,6 +133,8 @@ mod tests {
     use ark_poly::DenseUVPolynomial;
     use ark_poly::EvaluationDomain;
     use ark_poly::Radix2EvaluationDomain;
+    use ark_std::end_timer;
+    use ark_std::start_timer;
     use ark_std::{UniformRand, Zero};
 
     use super::AggregateKey;
@@ -216,6 +217,7 @@ mod tests {
             att[1],
         );
 
+        let timer = start_timer!(|| "naive");
         let lhs = E::pairing(show_crs.b, agg_sig.b)
             + E::pairing(agg_sig.avk[0], show_crs.avk[0])
             + E::pairing(agg_sig.avk[1], show_crs.avk[1])
@@ -231,8 +233,49 @@ mod tests {
             + E::pairing(agg_sig.qxhat[1], show_crs.qxhat[1])
             + E::pairing(show_crs.com_att, com)
             + E::pairing(pi, show_crs.pi);
-        let rhs = show_crs.y;
+        assert_eq!(lhs, show_crs.rhs);
+        end_timer!(timer);
 
-        assert_eq!(lhs, rhs);
+        let timer = start_timer!(|| "optimized");
+        let lhs_args = vec![
+            show_crs.b,
+            agg_sig.avk[0],
+            agg_sig.avk[1],
+            agg_sig.qx[0],
+            agg_sig.qx[1],
+            agg_sig.qz[0],
+            agg_sig.qz[1],
+            agg_sig.bhat,
+            agg_sig.q0,
+            agg_sig.avk_hat[0],
+            agg_sig.avk_hat[1],
+            agg_sig.qxhat[0],
+            agg_sig.qxhat[1],
+            show_crs.com_att,
+            pi,
+        ];
+
+        let rhs_args = vec![
+            agg_sig.b,
+            show_crs.avk[0],
+            show_crs.avk[1],
+            show_crs.qx[0],
+            show_crs.qx[1],
+            show_crs.qz[0],
+            show_crs.qz[1],
+            show_crs.bhat,
+            show_crs.q0,
+            show_crs.avk_hat[0],
+            show_crs.avk_hat[1],
+            show_crs.qxhat[0],
+            show_crs.qxhat[1],
+            com,
+            show_crs.pi,
+        ];
+
+        let lhs = E::multi_pairing(lhs_args, rhs_args);
+        end_timer!(timer);
+
+        assert_eq!(lhs, show_crs.rhs);
     }
 }
