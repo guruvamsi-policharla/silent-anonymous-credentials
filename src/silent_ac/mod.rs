@@ -1,10 +1,11 @@
+use crate::crs::CRS;
+use crate::gs08;
+use crate::silent_sps::aggregate::AggregateKey;
 use ark_ec::pairing::{Pairing, PairingOutput};
 use ark_ec::PrimeGroup;
 use ark_std::rand::Rng;
 use ark_std::UniformRand;
-
-use crate::crs::CRS;
-use crate::silent_sps::aggregate::AggregateKey;
+use ark_std::Zero;
 
 #[derive(Clone, Debug)]
 pub struct ShowCRS<E: Pairing> {
@@ -142,6 +143,193 @@ pub struct Showing<E: Pairing> {
     pub com_s2: [[E::G2; 2]; 2],
     pub com_s3: [[E::G2; 2]; 2],
     pub com_s4: [E::G1; 2],
+
+    // proofs
+    pub theta1: [[E::G1; 2]; 2],
+    pub pi1: [[E::G2; 2]; 2],
+
+    pub theta2: [[E::G1; 2]; 2],
+    pub pi2: [[E::G2; 2]; 2],
+
+    pub theta3: [[E::G1; 2]; 2],
+    pub pi3: [[E::G2; 2]; 2],
+}
+
+impl<E: Pairing> Showing<E> {
+    pub fn verify(&self, show_crs: &ShowCRS<E>, pk: &gs08::ProverKey<E>) {
+        let negg = -E::G1::generator();
+
+        // constraint 1
+        // check 1
+        let lhs = E::pairing(self.com_s4[0], self.com_s2[0][0]);
+        let rhs = E::pairing(self.theta1[0][0], pk.v1[0])
+            + E::pairing(self.theta1[1][0], pk.v2[0])
+            + E::pairing(pk.u1[0], self.pi1[0][0])
+            + E::pairing(pk.u2[0], self.pi1[1][0]);
+        assert_eq!(lhs, rhs);
+
+        // check 2
+        let lhs = E::pairing(self.com_s4[0], self.com_s2[0][1]);
+        let rhs = E::pairing(pk.u1[0], self.pi1[0][1])
+            + E::pairing(pk.u2[0], self.pi1[1][1])
+            + E::pairing(self.theta1[0][0], pk.v1[1])
+            + E::pairing(self.theta1[1][0], pk.v2[1]);
+        assert_eq!(lhs, rhs);
+
+        // check 3
+        let lhs =
+            E::pairing(negg, self.com_s3[0][0]) + E::pairing(self.com_s4[1], self.com_s2[0][0]);
+        let rhs = E::pairing(self.theta1[0][1], pk.v1[0])
+            + E::pairing(self.theta1[1][1], pk.v2[0])
+            + E::pairing(pk.u1[1], self.pi1[0][0])
+            + E::pairing(pk.u2[1], self.pi1[1][0]);
+        assert_eq!(lhs, rhs);
+
+        // check 4
+        let lhs =
+            E::pairing(negg, self.com_s3[0][1]) + E::pairing(self.com_s4[1], self.com_s2[0][1]);
+        let rhs = E::pairing(pk.u1[1], self.pi1[0][1])
+            + E::pairing(pk.u2[1], self.pi1[1][1])
+            + E::pairing(self.theta1[0][1], pk.v1[1])
+            + E::pairing(self.theta1[1][1], pk.v2[1]);
+        assert_eq!(lhs, rhs);
+
+        // constraint 2
+        // check 1
+        let lhs = E::pairing(self.com_s4[0], self.com_s2[1][0]);
+        let rhs = E::pairing(self.theta2[0][0], pk.v1[0])
+            + E::pairing(self.theta2[1][0], pk.v2[0])
+            + E::pairing(pk.u1[0], self.pi2[0][0])
+            + E::pairing(pk.u2[0], self.pi2[1][0]);
+        assert_eq!(lhs, rhs);
+
+        // check 2
+        let lhs = E::pairing(self.com_s4[0], self.com_s2[1][1]);
+        let rhs = E::pairing(pk.u1[0], self.pi2[0][1])
+            + E::pairing(pk.u2[0], self.pi2[1][1])
+            + E::pairing(self.theta2[0][0], pk.v1[1])
+            + E::pairing(self.theta2[1][0], pk.v2[1]);
+        assert_eq!(lhs, rhs);
+
+        // check 3
+        let lhs =
+            E::pairing(negg, self.com_s3[1][0]) + E::pairing(self.com_s4[1], self.com_s2[1][0]);
+        let rhs = E::pairing(self.theta2[0][1], pk.v1[0])
+            + E::pairing(self.theta2[1][1], pk.v2[0])
+            + E::pairing(pk.u1[1], self.pi2[0][0])
+            + E::pairing(pk.u2[1], self.pi2[1][0]);
+        assert_eq!(lhs, rhs);
+
+        // check 4
+        let lhs =
+            E::pairing(negg, self.com_s3[1][1]) + E::pairing(self.com_s4[1], self.com_s2[1][1]);
+        let rhs = E::pairing(pk.u1[1], self.pi2[0][1])
+            + E::pairing(pk.u2[1], self.pi2[1][1])
+            + E::pairing(self.theta2[0][1], pk.v1[1])
+            + E::pairing(self.theta2[1][1], pk.v2[1]);
+        assert_eq!(lhs, rhs);
+
+        // constraint 3
+        // check 1
+        let rhs = E::pairing(self.theta3[0][0], pk.v1[0])
+            + E::pairing(self.theta3[1][0], pk.v2[0])
+            + E::pairing(pk.u1[0], self.pi3[0][0])
+            + E::pairing(pk.u2[0], self.pi3[1][0]);
+        assert!(rhs.is_zero());
+
+        // check 2
+        let lhs = E::multi_pairing(
+            vec![
+                self.com_avk[0][0],
+                self.com_avk[1][0],
+                self.com_qx[0][0],
+                self.com_qx[1][0],
+                self.com_qz[0][0],
+                self.com_qz[1][0],
+                self.com_bhat[0],
+                self.com_q0[0],
+                self.com_avk_hat[0][0],
+                self.com_avk_hat[1][0],
+                self.com_qxhat[0][0],
+                self.com_qxhat[1][0],
+                self.com_pi[0],
+            ],
+            vec![
+                show_crs.avk[0],
+                show_crs.avk[1],
+                show_crs.qx[0],
+                show_crs.qx[1],
+                show_crs.qz[0],
+                show_crs.qz[1],
+                show_crs.bhat,
+                show_crs.q0,
+                show_crs.avk_hat[0],
+                show_crs.avk_hat[1],
+                show_crs.qxhat[0],
+                show_crs.qxhat[1],
+                show_crs.pi,
+            ],
+        );
+        let rhs = E::pairing(pk.u1[0], self.pi3[0][1])
+            + E::pairing(pk.u2[0], self.pi3[1][1])
+            + E::pairing(self.theta3[0][0], pk.v1[1])
+            + E::pairing(self.theta3[1][0], pk.v2[1]);
+        assert_eq!(lhs, rhs);
+        // todo: multi_miller
+
+        // check 3
+        let lhs = E::pairing(show_crs.b, self.com_b[0])
+            + E::pairing(show_crs.com_att, self.com_com_att[0]);
+        let rhs = E::pairing(self.theta3[0][1], pk.v1[0])
+            + E::pairing(self.theta3[1][1], pk.v2[0])
+            + E::pairing(pk.u1[1], self.pi3[0][0])
+            + E::pairing(pk.u2[1], self.pi3[1][0]);
+        assert_eq!(lhs, rhs);
+
+        // check 4
+        let lhs = E::multi_pairing(
+            vec![
+                show_crs.b,
+                show_crs.com_att,
+                self.com_avk[0][1],
+                self.com_avk[1][1],
+                self.com_qx[0][1],
+                self.com_qx[1][1],
+                self.com_qz[0][1],
+                self.com_qz[1][1],
+                self.com_bhat[1],
+                self.com_q0[1],
+                self.com_avk_hat[0][1],
+                self.com_avk_hat[1][1],
+                self.com_qxhat[0][1],
+                self.com_qxhat[1][1],
+                self.com_pi[1],
+            ],
+            vec![
+                self.com_b[1],
+                self.com_com_att[1],
+                show_crs.avk[0],
+                show_crs.avk[1],
+                show_crs.qx[0],
+                show_crs.qx[1],
+                show_crs.qz[0],
+                show_crs.qz[1],
+                show_crs.bhat,
+                show_crs.q0,
+                show_crs.avk_hat[0],
+                show_crs.avk_hat[1],
+                show_crs.qxhat[0],
+                show_crs.qxhat[1],
+                show_crs.pi,
+            ],
+        );
+        let rhs = E::pairing(pk.u1[1], self.pi3[0][1])
+            + E::pairing(pk.u2[1], self.pi3[1][1])
+            + E::pairing(self.theta3[0][1], pk.v1[1])
+            + E::pairing(self.theta3[1][1], pk.v2[1])
+            + show_crs.rhs;
+        assert_eq!(lhs, rhs);
+    }
 }
 
 #[cfg(test)]
@@ -308,5 +496,6 @@ mod tests {
 
         let pk = gs08::ProverKey::<E>::setup(&mut ark_std::test_rng());
         let showing = agg_sig.show(com, pi, &show_crs, &pk, &mut ark_std::test_rng());
+        showing.verify(&show_crs, &pk);
     }
 }

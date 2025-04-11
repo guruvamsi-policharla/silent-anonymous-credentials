@@ -361,12 +361,109 @@ impl<E: Pairing> AggregateSig<E> {
 
         let (com_s4, r_s4) = pk.commit_g1(&self.s4, rng);
 
-        // prove
-        //prove that e(s4,s2).e(-g, s3) = 0
-        // b -> s2[0]
-        // a -> s4
-        // d -> s3[0]
-        // f -> -E::G1::generator()
+        let negg = -E::G1::generator();
+
+        // prove that e(B,K) = show_crs.rhs
+        let mut tt = [[E::ScalarField::zero(); 2]; 2];
+        for i in 0..2 {
+            for j in 0..2 {
+                tt[i][j] = E::ScalarField::rand(rng);
+            }
+        }
+
+        let mut theta3 = [[E::G1::generator(); 2]; 2];
+        let mut pi3 = [[E::G2::generator(); 2]; 2];
+
+        theta3[0][0] = pk.u1[0] * tt[0][0] + pk.u2[0] * tt[1][0];
+        theta3[1][0] = pk.u1[0] * tt[0][1] + pk.u2[0] * tt[1][1];
+        theta3[0][1] = pk.u1[1] * tt[0][0]
+            + pk.u2[1] * tt[1][0]
+            + show_crs.b * r_b[0]
+            + show_crs.com_att * r_com_att[0];
+        theta3[1][1] = pk.u1[1] * tt[0][1]
+            + pk.u2[1] * tt[1][1]
+            + show_crs.b * r_b[1]
+            + show_crs.com_att * r_com_att[1];
+
+        pi3[0][0] = -(pk.v1[0] * tt[0][0] + pk.v2[0] * tt[0][1]);
+        pi3[1][0] = -(pk.v1[0] * tt[1][0] + pk.v2[0] * tt[1][1]);
+        pi3[0][1] = E::G2::msm(
+            &[
+                show_crs.avk[0].into(),
+                show_crs.avk[1].into(),
+                show_crs.qx[0].into(),
+                show_crs.qx[1].into(),
+                show_crs.qz[0].into(),
+                show_crs.qz[1].into(),
+                show_crs.bhat.into(),
+                show_crs.q0.into(),
+                show_crs.avk_hat[0].into(),
+                show_crs.avk_hat[1].into(),
+                show_crs.qxhat[0].into(),
+                show_crs.qxhat[1].into(),
+                show_crs.pi.into(),
+                pk.v1[1].into(),
+                pk.v2[1].into(),
+            ],
+            &[
+                r_avk[0][0],
+                r_avk[1][0],
+                r_qx[0][0],
+                r_qx[1][0],
+                r_qz[0][0],
+                r_qz[1][0],
+                r_bhat[0],
+                r_q0[0],
+                r_avk_hat[0][0],
+                r_avk_hat[1][0],
+                r_qxhat[0][0],
+                r_qxhat[1][0],
+                r_pi[0],
+                -tt[0][0],
+                -tt[0][1],
+            ],
+        )
+        .unwrap();
+
+        pi3[1][1] = E::G2::msm(
+            &[
+                show_crs.avk[0].into(),
+                show_crs.avk[1].into(),
+                show_crs.qx[0].into(),
+                show_crs.qx[1].into(),
+                show_crs.qz[0].into(),
+                show_crs.qz[1].into(),
+                show_crs.bhat.into(),
+                show_crs.q0.into(),
+                show_crs.avk_hat[0].into(),
+                show_crs.avk_hat[1].into(),
+                show_crs.qxhat[0].into(),
+                show_crs.qxhat[1].into(),
+                show_crs.pi.into(),
+                pk.v1[1].into(),
+                pk.v2[1].into(),
+            ],
+            &[
+                r_avk[0][1],
+                r_avk[1][1],
+                r_qx[0][1],
+                r_qx[1][1],
+                r_qz[0][1],
+                r_qz[1][1],
+                r_bhat[1],
+                r_q0[1],
+                r_avk_hat[0][1],
+                r_avk_hat[1][1],
+                r_qxhat[0][1],
+                r_qxhat[1][1],
+                r_pi[1],
+                -tt[1][0],
+                -tt[1][1],
+            ],
+        )
+        .unwrap();
+
+        //prove that e(s4,s2[0]).e(-g, s3[0]) = 0
         let mut tt = [[E::ScalarField::zero(); 2]; 2];
         for i in 0..2 {
             for j in 0..2 {
@@ -381,58 +478,60 @@ impl<E: Pairing> AggregateSig<E> {
             }
         }
 
-        let mut theta = [[E::G1::generator(); 2]; 2];
-        let mut pi = [[E::G2::generator(); 2]; 2];
+        let mut theta1 = [[E::G1::generator(); 2]; 2];
+        let mut pi1 = [[E::G2::generator(); 2]; 2];
 
-        let negg = -E::G1::generator();
-
-        theta[0][0] = pk.u1[0] * tt[0][0] + pk.u2[0] * tt[1][0];
-        theta[1][0] = pk.u1[0] * tt[0][1] + pk.u2[0] * tt[1][1];
-        theta[0][1] =
+        theta1[0][0] = pk.u1[0] * tt[0][0] + pk.u2[0] * tt[1][0];
+        theta1[1][0] = pk.u1[0] * tt[0][1] + pk.u2[0] * tt[1][1];
+        theta1[0][1] =
             pk.u1[1] * tt[0][0] + pk.u2[1] * tt[1][0] + negg * r_s3[0][0] + self.s4 * r_s2[0][0];
-        theta[1][1] =
+        theta1[1][1] =
             pk.u1[1] * tt[0][1] + pk.u2[1] * tt[1][1] + negg * r_s3[0][1] + self.s4 * r_s2[0][1];
 
-        pi[0][0] = pk.v1[0] * (rs[0][0] - tt[0][0]) + pk.v2[0] * (rs[0][1] - tt[0][1]);
-        pi[1][0] = pk.v1[0] * (rs[1][0] - tt[1][0]) + pk.v2[0] * (rs[1][1] - tt[1][1]);
-        pi[0][1] = self.s2[0] * r_s4[0]
+        pi1[0][0] = pk.v1[0] * (rs[0][0] - tt[0][0]) + pk.v2[0] * (rs[0][1] - tt[0][1]);
+        pi1[1][0] = pk.v1[0] * (rs[1][0] - tt[1][0]) + pk.v2[0] * (rs[1][1] - tt[1][1]);
+        pi1[0][1] = self.s2[0] * r_s4[0]
             + pk.v1[1] * (rs[0][0] - tt[0][0])
             + pk.v2[1] * (rs[0][1] - tt[0][1]);
-        pi[1][1] = self.s2[0] * r_s4[1]
+        pi1[1][1] = self.s2[0] * r_s4[1]
             + pk.v1[1] * (rs[1][0] - tt[1][0])
             + pk.v2[1] * (rs[1][1] - tt[1][1]);
 
-        // check 1
-        let lhs = E::pairing(com_s4[0], com_s2[0][0]);
-        let rhs = E::pairing(theta[0][0], pk.v1[0])
-            + E::pairing(theta[1][0], pk.v2[0])
-            + E::pairing(pk.u1[0], pi[0][0])
-            + E::pairing(pk.u2[0], pi[1][0]);
-        assert_eq!(lhs, rhs);
+        // prove that e(s4,s2[1]).e(-g, s3[1]) = 0
+        let mut tt = [[E::ScalarField::zero(); 2]; 2];
+        for i in 0..2 {
+            for j in 0..2 {
+                tt[i][j] = E::ScalarField::rand(rng);
+            }
+        }
 
-        // check 2
-        let lhs = E::pairing(com_s4[0], com_s2[0][1]);
-        let rhs = E::pairing(pk.u1[0], pi[0][1])
-            + E::pairing(pk.u2[0], pi[1][1])
-            + E::pairing(theta[0][0], pk.v1[1])
-            + E::pairing(theta[1][0], pk.v2[1]);
-        assert_eq!(lhs, rhs);
+        let mut rs = [[E::ScalarField::zero(); 2]; 2];
+        for i in 0..2 {
+            for j in 0..2 {
+                rs[i][j] = r_s4[i] * r_s2[1][j];
+            }
+        }
 
-        // check 3
-        let lhs = E::pairing(negg, com_s3[0][0]) + E::pairing(com_s4[1], com_s2[0][0]);
-        let rhs = E::pairing(theta[0][1], pk.v1[0])
-            + E::pairing(theta[1][1], pk.v2[0])
-            + E::pairing(pk.u1[1], pi[0][0])
-            + E::pairing(pk.u2[1], pi[1][0]);
-        assert_eq!(lhs, rhs);
+        let mut theta2 = [[E::G1::generator(); 2]; 2];
+        let mut pi2 = [[E::G2::generator(); 2]; 2];
 
-        // check 4
-        let lhs = E::pairing(negg, com_s3[0][1]) + E::pairing(com_s4[1], com_s2[0][1]);
-        let rhs = E::pairing(pk.u1[1], pi[0][1])
-            + E::pairing(pk.u2[1], pi[1][1])
-            + E::pairing(theta[0][1], pk.v1[1])
-            + E::pairing(theta[1][1], pk.v2[1]);
-        assert_eq!(lhs, rhs);
+        let negg = -E::G1::generator();
+
+        theta2[0][0] = pk.u1[0] * tt[0][0] + pk.u2[0] * tt[1][0];
+        theta2[1][0] = pk.u1[0] * tt[0][1] + pk.u2[0] * tt[1][1];
+        theta2[0][1] =
+            pk.u1[1] * tt[0][0] + pk.u2[1] * tt[1][0] + negg * r_s3[1][0] + self.s4 * r_s2[1][0];
+        theta2[1][1] =
+            pk.u1[1] * tt[0][1] + pk.u2[1] * tt[1][1] + negg * r_s3[1][1] + self.s4 * r_s2[1][1];
+
+        pi2[0][0] = pk.v1[0] * (rs[0][0] - tt[0][0]) + pk.v2[0] * (rs[0][1] - tt[0][1]);
+        pi2[1][0] = pk.v1[0] * (rs[1][0] - tt[1][0]) + pk.v2[0] * (rs[1][1] - tt[1][1]);
+        pi2[0][1] = self.s2[1] * r_s4[0]
+            + pk.v1[1] * (rs[0][0] - tt[0][0])
+            + pk.v2[1] * (rs[0][1] - tt[0][1]);
+        pi2[1][1] = self.s2[1] * r_s4[1]
+            + pk.v1[1] * (rs[1][0] - tt[1][0])
+            + pk.v2[1] * (rs[1][1] - tt[1][1]);
 
         Showing {
             com_b,
@@ -449,6 +548,12 @@ impl<E: Pairing> AggregateSig<E> {
             com_s2,
             com_s3,
             com_s4,
+            theta1,
+            pi1,
+            theta2,
+            pi2,
+            theta3,
+            pi3,
         }
     }
 }
