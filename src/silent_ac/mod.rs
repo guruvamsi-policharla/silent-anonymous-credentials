@@ -6,7 +6,12 @@ use ark_std::UniformRand;
 use crate::crs::CRS;
 use crate::silent_sps::aggregate::AggregateKey;
 
+#[derive(Clone, Debug)]
 pub struct ShowCRS<E: Pairing> {
+    pub t: usize,
+    pub x: E::ScalarField,
+    pub y: E::ScalarField,
+
     pub avk: [E::G2; 2],
     pub avk_hat: [E::G2; 2],
 
@@ -102,6 +107,9 @@ impl<E: Pairing> ShowCRS<E> {
             + E::pairing(E::G1::generator() * s[3], E::G2::generator());
 
         ShowCRS {
+            t,
+            x,
+            y,
             avk,
             avk_hat,
             b,
@@ -117,9 +125,29 @@ impl<E: Pairing> ShowCRS<E> {
     }
 }
 
+#[derive(Clone, Debug)]
+pub struct Showing<E: Pairing> {
+    pub com_b: [E::G2; 2],
+    pub com_avk: [[E::G1; 2]; 2],
+    pub com_qx: [[E::G1; 2]; 2],
+    pub com_qz: [[E::G1; 2]; 2],
+    pub com_bhat: [E::G1; 2],
+    pub com_q0: [E::G1; 2],
+    pub com_avk_hat: [[E::G1; 2]; 2],
+    pub com_qxhat: [[E::G1; 2]; 2],
+    pub com_com_att: [E::G2; 2],
+    pub com_pi: [E::G1; 2],
+
+    pub com_s1: [[E::G2; 2]; 2],
+    pub com_s2: [[E::G2; 2]; 2],
+    pub com_s3: [[E::G2; 2]; 2],
+    pub com_s4: [E::G1; 2],
+}
+
 #[cfg(test)]
 mod tests {
     use crate::crs::CRS;
+    use crate::gs08;
     use crate::silent_sps::Sig;
     use crate::silent_sps::SK;
 
@@ -141,7 +169,7 @@ mod tests {
     use super::ShowCRS;
 
     #[test]
-    fn test_aggregation() {
+    fn test_showing() {
         let n = 1 << 4;
         let t = n / 2;
         let domain = Radix2EvaluationDomain::<F>::new(n).unwrap();
@@ -277,5 +305,8 @@ mod tests {
         end_timer!(timer);
 
         assert_eq!(lhs, show_crs.rhs);
+
+        let pk = gs08::ProverKey::<E>::setup(&mut ark_std::test_rng());
+        let showing = agg_sig.show(com, pi, &show_crs, &pk, &mut ark_std::test_rng());
     }
 }

@@ -170,7 +170,7 @@ mod test {
         let rng = &mut test_rng();
         let pk = ProverKey::<Bls12_381>::setup(rng);
 
-        let a = G1::rand(rng); //statement
+        let a = G1::rand(rng); //witness
         let b = G2::rand(rng); //witness
         let f = G1::rand(rng); //statement
         let d = G2::rand(rng); //witness
@@ -178,6 +178,7 @@ mod test {
         let h = d; //statement
         let t = E::pairing(a, b) + E::pairing(f, d) + E::pairing(c, h);
 
+        let (com_a, r_a) = pk.commit_g1(&a, rng);
         let (com_b, r_b) = pk.commit_g2(&b, rng);
         let (com_d, r_d) = pk.commit_g2(&d, rng);
         let (com_c, r_c) = pk.commit_g1(&c, rng);
@@ -190,6 +191,13 @@ mod test {
             }
         }
 
+        let mut rs = [[Fr::zero(); 2]; 2];
+        for i in 0..2 {
+            for j in 0..2 {
+                rs[i][j] = r_a[i] * r_b[j];
+            }
+        }
+
         let mut theta = [[G1::generator(); 2]; 2];
         let mut pi = [[G2::generator(); 2]; 2];
 
@@ -198,39 +206,44 @@ mod test {
         theta[0][1] = pk.u1[1] * tt[0][0] + pk.u2[1] * tt[1][0] + f * r_d[0] + a * r_b[0];
         theta[1][1] = pk.u1[1] * tt[0][1] + pk.u2[1] * tt[1][1] + f * r_d[1] + a * r_b[1];
 
-        pi[0][0] = -(pk.v1[0] * tt[0][0] + pk.v2[0] * tt[0][1]);
-        pi[1][0] = -(pk.v1[0] * tt[1][0] + pk.v2[0] * tt[1][1]);
-        pi[0][1] = h * r_c[0] - (pk.v1[1] * tt[0][0] + pk.v2[1] * tt[0][1]);
-        pi[1][1] = h * r_c[1] - (pk.v1[1] * tt[1][0] + pk.v2[1] * tt[1][1]);
+        pi[0][0] = pk.v1[0] * (rs[0][0] - tt[0][0]) + pk.v2[0] * (rs[0][1] - tt[0][1]);
+        pi[1][0] = pk.v1[0] * (rs[1][0] - tt[1][0]) + pk.v2[0] * (rs[1][1] - tt[1][1]);
+        pi[0][1] = h * r_c[0]
+            + b * r_a[0]
+            + pk.v1[1] * (rs[0][0] - tt[0][0])
+            + pk.v2[1] * (rs[0][1] - tt[0][1]);
+        pi[1][1] = h * r_c[1]
+            + b * r_a[1]
+            + pk.v1[1] * (rs[1][0] - tt[1][0])
+            + pk.v2[1] * (rs[1][1] - tt[1][1]);
 
         // check 1
+        let lhs = E::pairing(com_a[0], com_b[0]);
         let rhs = E::pairing(theta[0][0], pk.v1[0])
             + E::pairing(theta[1][0], pk.v2[0])
             + E::pairing(pk.u1[0], pi[0][0])
             + E::pairing(pk.u2[0], pi[1][0]);
-
-        assert!(rhs.is_zero());
+        assert_eq!(lhs, rhs);
 
         // check 2
-        let lhs = E::pairing(com_c[0], h);
+        let lhs = E::pairing(com_c[0], h) + E::pairing(com_a[0], com_b[1]);
         let rhs = E::pairing(pk.u1[0], pi[0][1])
             + E::pairing(pk.u2[0], pi[1][1])
             + E::pairing(theta[0][0], pk.v1[1])
             + E::pairing(theta[1][0], pk.v2[1]);
-
         assert_eq!(lhs, rhs);
 
         // check 3
-        let lhs = E::pairing(f, com_d[0]) + E::pairing(a, com_b[0]);
+        let lhs = E::pairing(f, com_d[0]) + E::pairing(com_a[1], com_b[0]);
         let rhs = E::pairing(theta[0][1], pk.v1[0])
             + E::pairing(theta[1][1], pk.v2[0])
             + E::pairing(pk.u1[1], pi[0][0])
             + E::pairing(pk.u2[1], pi[1][0]);
-
         assert_eq!(lhs, rhs);
 
         // check 4
-        let lhs = E::pairing(f, com_d[1]) + E::pairing(com_c[1], h) + E::pairing(a, com_b[1]);
+        let lhs =
+            E::pairing(f, com_d[1]) + E::pairing(com_c[1], h) + E::pairing(com_a[1], com_b[1]);
         let rhs = E::pairing(pk.u1[1], pi[0][1])
             + E::pairing(pk.u2[1], pi[1][1])
             + E::pairing(theta[0][1], pk.v1[1])

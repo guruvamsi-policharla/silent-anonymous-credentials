@@ -1,5 +1,7 @@
 use super::Hints;
 use super::{Sig, VK};
+use crate::gs08::ProverKey;
+use crate::silent_ac::{ShowCRS, Showing};
 use crate::{crs::CRS, utils::compute_vanishing_poly};
 use ark_ec::pairing::Pairing;
 use ark_ec::PrimeGroup;
@@ -8,6 +10,8 @@ use ark_poly::{
     univariate::DensePolynomial, DenseUVPolynomial, EvaluationDomain, Polynomial,
     Radix2EvaluationDomain,
 };
+use ark_std::rand::Rng;
+use ark_std::UniformRand;
 use ark_std::{One, Zero};
 
 #[derive(Clone, Debug)]
@@ -296,6 +300,156 @@ impl<E: Pairing> AggregateSig<E> {
         let agg_vk = VK::<E> { vk: self.avk };
 
         sps_sig.verify(&m, &agg_vk, &crs);
+    }
+
+    pub fn show(
+        &self,
+        com_att: E::G2,
+        pi: E::G1,
+        show_crs: &ShowCRS<E>,
+        pk: &ProverKey<E>,
+        rng: &mut impl Rng,
+    ) -> Showing<E> {
+        let (com_b, r_b) = pk.commit_g2(&self.b, rng);
+
+        let (com_avk_0, r_avk_0) = pk.commit_g1(&self.avk[0], rng);
+        let (com_avk_1, r_avk_1) = pk.commit_g1(&self.avk[1], rng);
+        let com_avk = [com_avk_0, com_avk_1];
+        let r_avk = [r_avk_0, r_avk_1];
+
+        let (com_qx_0, r_qx_0) = pk.commit_g1(&self.qx[0], rng);
+        let (com_qx_1, r_qx_1) = pk.commit_g1(&self.qx[1], rng);
+        let com_qx = [com_qx_0, com_qx_1];
+        let r_qx = [r_qx_0, r_qx_1];
+
+        let (com_qz_0, r_qz_0) = pk.commit_g1(&self.qz[0], rng);
+        let (com_qz_1, r_qz_1) = pk.commit_g1(&self.qz[1], rng);
+        let com_qz = [com_qz_0, com_qz_1];
+        let r_qz = [r_qz_0, r_qz_1];
+
+        let (com_bhat, r_bhat) = pk.commit_g1(&self.bhat, rng);
+
+        let (com_q0, r_q0) = pk.commit_g1(&self.q0, rng);
+
+        let (com_avk_hat_0, r_avk_hat_0) = pk.commit_g1(&self.avk_hat[0], rng);
+        let (com_avk_hat_1, r_avk_hat_1) = pk.commit_g1(&self.avk_hat[1], rng);
+        let com_avk_hat = [com_avk_hat_0, com_avk_hat_1];
+        let r_avk_hat = [r_avk_hat_0, r_avk_hat_1];
+
+        let (com_qxhat_0, r_qxhat_0) = pk.commit_g1(&self.qxhat[0], rng);
+        let (com_qxhat_1, r_qxhat_1) = pk.commit_g1(&self.qxhat[1], rng);
+        let com_qxhat = [com_qxhat_0, com_qxhat_1];
+        let r_qxhat = [r_qxhat_0, r_qxhat_1];
+
+        let (com_com_att, r_com_att) = pk.commit_g2(&com_att, rng);
+        let (com_pi, r_pi) = pk.commit_g1(&pi, rng);
+
+        let (com_s1_0, r_s1_0) = pk.commit_g2(&self.s1[0], rng);
+        let (com_s1_1, r_s1_1) = pk.commit_g2(&self.s1[1], rng);
+        let com_s1 = [com_s1_0, com_s1_1];
+        let r_s1 = [r_s1_0, r_s1_1];
+
+        let (com_s2_0, r_s2_0) = pk.commit_g2(&self.s2[0], rng);
+        let (com_s2_1, r_s2_1) = pk.commit_g2(&self.s2[1], rng);
+        let com_s2 = [com_s2_0, com_s2_1];
+        let r_s2 = [r_s2_0, r_s2_1];
+
+        let (com_s3_0, r_s3_0) = pk.commit_g2(&self.s3[0], rng);
+        let (com_s3_1, r_s3_1) = pk.commit_g2(&self.s3[1], rng);
+        let com_s3 = [com_s3_0, com_s3_1];
+        let r_s3 = [r_s3_0, r_s3_1];
+
+        let (com_s4, r_s4) = pk.commit_g1(&self.s4, rng);
+
+        // prove
+        //prove that e(s4,s2).e(-g, s3) = 0
+        // b -> s2[0]
+        // a -> s4
+        // d -> s3[0]
+        // f -> -E::G1::generator()
+        let mut tt = [[E::ScalarField::zero(); 2]; 2];
+        for i in 0..2 {
+            for j in 0..2 {
+                tt[i][j] = E::ScalarField::rand(rng);
+            }
+        }
+
+        let mut rs = [[E::ScalarField::zero(); 2]; 2];
+        for i in 0..2 {
+            for j in 0..2 {
+                rs[i][j] = r_s4[i] * r_s2[0][j];
+            }
+        }
+
+        let mut theta = [[E::G1::generator(); 2]; 2];
+        let mut pi = [[E::G2::generator(); 2]; 2];
+
+        let negg = -E::G1::generator();
+
+        theta[0][0] = pk.u1[0] * tt[0][0] + pk.u2[0] * tt[1][0];
+        theta[1][0] = pk.u1[0] * tt[0][1] + pk.u2[0] * tt[1][1];
+        theta[0][1] =
+            pk.u1[1] * tt[0][0] + pk.u2[1] * tt[1][0] + negg * r_s3[0][0] + self.s4 * r_s2[0][0];
+        theta[1][1] =
+            pk.u1[1] * tt[0][1] + pk.u2[1] * tt[1][1] + negg * r_s3[0][1] + self.s4 * r_s2[0][1];
+
+        pi[0][0] = pk.v1[0] * (rs[0][0] - tt[0][0]) + pk.v2[0] * (rs[0][1] - tt[0][1]);
+        pi[1][0] = pk.v1[0] * (rs[1][0] - tt[1][0]) + pk.v2[0] * (rs[1][1] - tt[1][1]);
+        pi[0][1] = self.s2[0] * r_s4[0]
+            + pk.v1[1] * (rs[0][0] - tt[0][0])
+            + pk.v2[1] * (rs[0][1] - tt[0][1]);
+        pi[1][1] = self.s2[0] * r_s4[1]
+            + pk.v1[1] * (rs[1][0] - tt[1][0])
+            + pk.v2[1] * (rs[1][1] - tt[1][1]);
+
+        // check 1
+        let lhs = E::pairing(com_s4[0], com_s2[0][0]);
+        let rhs = E::pairing(theta[0][0], pk.v1[0])
+            + E::pairing(theta[1][0], pk.v2[0])
+            + E::pairing(pk.u1[0], pi[0][0])
+            + E::pairing(pk.u2[0], pi[1][0]);
+        assert_eq!(lhs, rhs);
+
+        // check 2
+        let lhs = E::pairing(com_s4[0], com_s2[0][1]);
+        let rhs = E::pairing(pk.u1[0], pi[0][1])
+            + E::pairing(pk.u2[0], pi[1][1])
+            + E::pairing(theta[0][0], pk.v1[1])
+            + E::pairing(theta[1][0], pk.v2[1]);
+        assert_eq!(lhs, rhs);
+
+        // check 3
+        let lhs = E::pairing(negg, com_s3[0][0]) + E::pairing(com_s4[1], com_s2[0][0]);
+        let rhs = E::pairing(theta[0][1], pk.v1[0])
+            + E::pairing(theta[1][1], pk.v2[0])
+            + E::pairing(pk.u1[1], pi[0][0])
+            + E::pairing(pk.u2[1], pi[1][0]);
+        assert_eq!(lhs, rhs);
+
+        // check 4
+        let lhs = E::pairing(negg, com_s3[0][1]) + E::pairing(com_s4[1], com_s2[0][1]);
+        let rhs = E::pairing(pk.u1[1], pi[0][1])
+            + E::pairing(pk.u2[1], pi[1][1])
+            + E::pairing(theta[0][1], pk.v1[1])
+            + E::pairing(theta[1][1], pk.v2[1]);
+        assert_eq!(lhs, rhs);
+
+        Showing {
+            com_b,
+            com_avk,
+            com_qx,
+            com_qz,
+            com_bhat,
+            com_q0,
+            com_avk_hat,
+            com_qxhat,
+            com_com_att,
+            com_pi,
+            com_s1,
+            com_s2,
+            com_s3,
+            com_s4,
+        }
     }
 }
 
