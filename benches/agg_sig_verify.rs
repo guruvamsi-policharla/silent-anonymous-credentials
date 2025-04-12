@@ -1,9 +1,10 @@
 use ark_std::UniformRand;
 use ark_std::Zero;
 use criterion::{criterion_group, criterion_main, Criterion};
-use silent_sps::silent_sps::aggregate::AggregateKey;
-use silent_sps::silent_sps::Sig;
-use silent_sps::{crs::CRS, silent_sps::SK};
+use silent_anonymous_credentials::crs::CRS;
+use silent_anonymous_credentials::silent_sps::aggregate::AggregateKey;
+use silent_anonymous_credentials::silent_sps::Sig;
+use silent_anonymous_credentials::silent_sps::SK;
 
 type E = ark_bls12_381::Bls12_381;
 type G1 = ark_bls12_381::G1Projective;

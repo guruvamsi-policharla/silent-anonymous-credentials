@@ -31,3 +31,11 @@ harness = false
 [[bench]]
 name = "agg_sig_verify"
 harness = false
+
+[[bench]]
+name = "show"
+harness = false
+
+[[bench]]
+name = "show_verify"
+harness = false
