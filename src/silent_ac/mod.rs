@@ -166,84 +166,176 @@ impl<E: Pairing> Showing<E> {
 
         // constraint 1
         // check 1
-        let lhs = E::pairing(self.com_s4[0], self.com_s2[0][0]);
-        let rhs = E::pairing(self.theta1[0][0], pk.v1[0])
-            + E::pairing(self.theta1[1][0], pk.v2[0])
-            + E::pairing(pk.u1[0], self.pi1[0][0])
-            + E::pairing(pk.u2[0], self.pi1[1][0]);
-        assert_eq!(lhs, rhs);
+        assert!(E::multi_pairing(
+            vec![
+                -self.com_s4[0],
+                self.theta1[0][0],
+                self.theta1[1][0],
+                pk.u1[0],
+                pk.u2[0],
+            ],
+            vec![
+                self.com_s2[0][0],
+                pk.v1[0],
+                pk.v2[0],
+                self.pi1[0][0],
+                self.pi1[1][0],
+            ],
+        )
+        .is_zero());
 
         // check 2
-        let lhs = E::pairing(self.com_s4[0], self.com_s2[0][1]);
-        let rhs = E::pairing(pk.u1[0], self.pi1[0][1])
-            + E::pairing(pk.u2[0], self.pi1[1][1])
-            + E::pairing(self.theta1[0][0], pk.v1[1])
-            + E::pairing(self.theta1[1][0], pk.v2[1]);
-        assert_eq!(lhs, rhs);
+        let should_be_zero = E::multi_pairing(
+            vec![
+                -self.com_s4[0],
+                pk.u1[0],
+                pk.u2[0],
+                self.theta1[0][0],
+                self.theta1[1][0],
+            ],
+            vec![
+                self.com_s2[0][1],
+                self.pi1[0][1],
+                self.pi1[1][1],
+                pk.v1[1],
+                pk.v2[1],
+            ],
+        );
+        assert!(should_be_zero.is_zero());
 
         // check 3
-        let lhs =
-            E::pairing(negg, self.com_s3[0][0]) + E::pairing(self.com_s4[1], self.com_s2[0][0]);
-        let rhs = E::pairing(self.theta1[0][1], pk.v1[0])
-            + E::pairing(self.theta1[1][1], pk.v2[0])
-            + E::pairing(pk.u1[1], self.pi1[0][0])
-            + E::pairing(pk.u2[1], self.pi1[1][0]);
-        assert_eq!(lhs, rhs);
+        let should_be_zero = E::multi_pairing(
+            vec![
+                E::G1::generator(),
+                -self.com_s4[1],
+                self.theta1[0][1],
+                self.theta1[1][1],
+                pk.u1[1],
+                pk.u2[1],
+            ],
+            vec![
+                self.com_s3[0][0],
+                self.com_s2[0][0],
+                pk.v1[0],
+                pk.v2[0],
+                self.pi1[0][0],
+                self.pi1[1][0],
+            ],
+        );
+        assert!(should_be_zero.is_zero());
 
         // check 4
-        let lhs =
-            E::pairing(negg, self.com_s3[0][1]) + E::pairing(self.com_s4[1], self.com_s2[0][1]);
-        let rhs = E::pairing(pk.u1[1], self.pi1[0][1])
-            + E::pairing(pk.u2[1], self.pi1[1][1])
-            + E::pairing(self.theta1[0][1], pk.v1[1])
-            + E::pairing(self.theta1[1][1], pk.v2[1]);
-        assert_eq!(lhs, rhs);
+        let should_be_zero = E::multi_pairing(
+            vec![
+                E::G1::generator(),
+                -self.com_s4[1],
+                self.theta1[0][1],
+                self.theta1[1][1],
+                pk.u1[1],
+                pk.u2[1],
+            ],
+            vec![
+                self.com_s3[0][1],
+                self.com_s2[0][1],
+                pk.v1[1],
+                pk.v2[1],
+                self.pi1[0][1],
+                self.pi1[1][1],
+            ],
+        );
+        assert!(should_be_zero.is_zero());
 
         // constraint 2
         // check 1
-        let lhs = E::pairing(self.com_s4[0], self.com_s2[1][0]);
-        let rhs = E::pairing(self.theta2[0][0], pk.v1[0])
-            + E::pairing(self.theta2[1][0], pk.v2[0])
-            + E::pairing(pk.u1[0], self.pi2[0][0])
-            + E::pairing(pk.u2[0], self.pi2[1][0]);
-        assert_eq!(lhs, rhs);
+        let should_be_zero = E::multi_pairing(
+            vec![
+                -self.com_s4[0],
+                self.theta2[0][0],
+                self.theta2[1][0],
+                pk.u1[0],
+                pk.u2[0],
+            ],
+            vec![
+                self.com_s2[1][0],
+                pk.v1[0],
+                pk.v2[0],
+                self.pi2[0][0],
+                self.pi2[1][0],
+            ],
+        );
+        assert!(should_be_zero.is_zero());
 
         // check 2
-        let lhs = E::pairing(self.com_s4[0], self.com_s2[1][1]);
-        let rhs = E::pairing(pk.u1[0], self.pi2[0][1])
-            + E::pairing(pk.u2[0], self.pi2[1][1])
-            + E::pairing(self.theta2[0][0], pk.v1[1])
-            + E::pairing(self.theta2[1][0], pk.v2[1]);
-        assert_eq!(lhs, rhs);
+        let should_be_zero = E::multi_pairing(
+            vec![
+                -self.com_s4[0],
+                self.theta2[0][0],
+                self.theta2[1][0],
+                pk.u1[0],
+                pk.u2[0],
+            ],
+            vec![
+                self.com_s2[1][1],
+                pk.v1[1],
+                pk.v2[1],
+                self.pi2[0][1],
+                self.pi2[1][1],
+            ],
+        );
+        assert!(should_be_zero.is_zero());
 
         // check 3
-        let lhs =
-            E::pairing(negg, self.com_s3[1][0]) + E::pairing(self.com_s4[1], self.com_s2[1][0]);
-        let rhs = E::pairing(self.theta2[0][1], pk.v1[0])
-            + E::pairing(self.theta2[1][1], pk.v2[0])
-            + E::pairing(pk.u1[1], self.pi2[0][0])
-            + E::pairing(pk.u2[1], self.pi2[1][0]);
-        assert_eq!(lhs, rhs);
+        let should_be_zero = E::multi_pairing(
+            vec![
+                E::G1::generator(),
+                -self.com_s4[1],
+                self.theta2[0][1],
+                self.theta2[1][1],
+                pk.u1[1],
+                pk.u2[1],
+            ],
+            vec![
+                self.com_s3[1][0],
+                self.com_s2[1][0],
+                pk.v1[0],
+                pk.v2[0],
+                self.pi2[0][0],
+                self.pi2[1][0],
+            ],
+        );
+        assert!(should_be_zero.is_zero());
 
         // check 4
-        let lhs =
-            E::pairing(negg, self.com_s3[1][1]) + E::pairing(self.com_s4[1], self.com_s2[1][1]);
-        let rhs = E::pairing(pk.u1[1], self.pi2[0][1])
-            + E::pairing(pk.u2[1], self.pi2[1][1])
-            + E::pairing(self.theta2[0][1], pk.v1[1])
-            + E::pairing(self.theta2[1][1], pk.v2[1]);
-        assert_eq!(lhs, rhs);
+        let should_be_zero = E::multi_pairing(
+            vec![
+                E::G1::generator(),
+                -self.com_s4[1],
+                pk.u1[1],
+                pk.u2[1],
+                self.theta2[0][1],
+                self.theta2[1][1],
+            ],
+            vec![
+                self.com_s3[1][1],
+                self.com_s2[1][1],
+                self.pi2[0][1],
+                self.pi2[1][1],
+                pk.v1[1],
+                pk.v2[1],
+            ],
+        );
+        assert!(should_be_zero.is_zero());
 
         // constraint 3
         // check 1
-        let rhs = E::pairing(self.theta3[0][0], pk.v1[0])
-            + E::pairing(self.theta3[1][0], pk.v2[0])
-            + E::pairing(pk.u1[0], self.pi3[0][0])
-            + E::pairing(pk.u2[0], self.pi3[1][0]);
-        assert!(rhs.is_zero());
+        let should_be_zero = E::multi_pairing(
+            vec![self.theta3[0][0], self.theta3[1][0], pk.u1[0], pk.u2[0]],
+            vec![pk.v1[0], pk.v2[0], self.pi3[0][0], self.pi3[1][0]],
+        );
+        assert!(should_be_zero.is_zero());
 
         // check 2
-        let lhs = E::multi_pairing(
+        let should_be_zero = E::multi_pairing(
             vec![
                 self.com_avk[0][0],
                 self.com_avk[1][0],
@@ -258,6 +350,10 @@ impl<E: Pairing> Showing<E> {
                 self.com_qxhat[0][0],
                 self.com_qxhat[1][0],
                 self.com_pi[0],
+                -pk.u1[0],
+                -pk.u2[0],
+                -self.theta3[0][0],
+                -self.theta3[1][0],
             ],
             vec![
                 show_crs.avk[0],
@@ -273,23 +369,35 @@ impl<E: Pairing> Showing<E> {
                 show_crs.qxhat[0],
                 show_crs.qxhat[1],
                 show_crs.pi,
+                self.pi3[0][1],
+                self.pi3[1][1],
+                pk.v1[1],
+                pk.v2[1],
             ],
         );
-        let rhs = E::pairing(pk.u1[0], self.pi3[0][1])
-            + E::pairing(pk.u2[0], self.pi3[1][1])
-            + E::pairing(self.theta3[0][0], pk.v1[1])
-            + E::pairing(self.theta3[1][0], pk.v2[1]);
-        assert_eq!(lhs, rhs);
-        // todo: multi_miller
+
+        assert!(should_be_zero.is_zero());
 
         // check 3
-        let lhs = E::pairing(show_crs.b, self.com_b[0])
-            + E::pairing(show_crs.com_att, self.com_com_att[0]);
-        let rhs = E::pairing(self.theta3[0][1], pk.v1[0])
-            + E::pairing(self.theta3[1][1], pk.v2[0])
-            + E::pairing(pk.u1[1], self.pi3[0][0])
-            + E::pairing(pk.u2[1], self.pi3[1][0]);
-        assert_eq!(lhs, rhs);
+        let should_be_zero = E::multi_pairing(
+            vec![
+                -show_crs.b,
+                -show_crs.com_att,
+                self.theta3[0][1],
+                self.theta3[1][1],
+                pk.u1[1],
+                pk.u2[1],
+            ],
+            vec![
+                self.com_b[0],
+                self.com_com_att[0],
+                pk.v1[0],
+                pk.v2[0],
+                self.pi3[0][0],
+                self.pi3[1][0],
+            ],
+        );
+        assert!(should_be_zero.is_zero());
 
         // check 4
         let lhs = E::multi_pairing(
@@ -309,6 +417,10 @@ impl<E: Pairing> Showing<E> {
                 self.com_qxhat[0][1],
                 self.com_qxhat[1][1],
                 self.com_pi[1],
+                -pk.u1[1],
+                -pk.u2[1],
+                -self.theta3[0][1],
+                -self.theta3[1][1],
             ],
             vec![
                 self.com_b[1],
@@ -326,61 +438,121 @@ impl<E: Pairing> Showing<E> {
                 show_crs.qxhat[0],
                 show_crs.qxhat[1],
                 show_crs.pi,
+                self.pi3[0][1],
+                self.pi3[1][1],
+                pk.v1[1],
+                pk.v2[1],
             ],
         );
-        let rhs = E::pairing(pk.u1[1], self.pi3[0][1])
-            + E::pairing(pk.u2[1], self.pi3[1][1])
-            + E::pairing(self.theta3[0][1], pk.v1[1])
-            + E::pairing(self.theta3[1][1], pk.v2[1])
-            + show_crs.rhs;
-        assert_eq!(lhs, rhs);
+        assert_eq!(lhs, show_crs.rhs);
 
         // constraint 4
         // check 1
-        let lhs = E::pairing(self.com_avk[1][0], self.com_com_att[0]);
-        let rhs = E::pairing(self.theta4[0][0], pk.v1[0])
-            + E::pairing(self.theta4[1][0], pk.v2[0])
-            + E::pairing(pk.u1[0], self.pi4[0][0])
-            + E::pairing(pk.u2[0], self.pi4[1][0]);
-        assert_eq!(lhs, rhs);
+
+        let should_be_zero = E::multi_pairing(
+            vec![
+                -self.com_avk[1][0],
+                self.theta4[0][0],
+                self.theta4[1][0],
+                pk.u1[0],
+                pk.u2[0],
+            ],
+            vec![
+                self.com_com_att[0],
+                pk.v1[0],
+                pk.v2[0],
+                self.pi4[0][0],
+                self.pi4[1][0],
+            ],
+        );
+
+        assert!(should_be_zero.is_zero());
 
         // check 2
-        let lhs = E::pairing(self.com_avk[0][0], E::G2::generator())
-            + E::pairing(self.com_avk[1][0], self.com_com_att[1]);
-        let rhs = E::pairing(pk.u1[0], self.pi4[0][1])
-            + E::pairing(pk.u2[0], self.pi4[1][1])
-            + E::pairing(self.theta4[0][0], pk.v1[1])
-            + E::pairing(self.theta4[1][0], pk.v2[1]);
-        assert_eq!(lhs, rhs);
+        let should_be_zero = E::multi_pairing(
+            vec![
+                -self.com_avk[0][0],
+                -self.com_avk[1][0],
+                pk.u1[0],
+                pk.u2[0],
+                self.theta4[0][0],
+                self.theta4[1][0],
+            ],
+            vec![
+                E::G2::generator(),
+                self.com_com_att[1],
+                self.pi4[0][1],
+                self.pi4[1][1],
+                pk.v1[1],
+                pk.v2[1],
+            ],
+        );
+        assert!(should_be_zero.is_zero());
 
         // check 3
-        let lhs = E::pairing(negg, self.com_s1[0][0])
-            + E::pairing(neg_ga, self.com_s1[1][0])
-            + E::pairing(crs.ua[0], self.com_s2[0][0])
-            + E::pairing(crs.ua[1], self.com_s2[1][0])
-            + E::pairing(crs.va[0], self.com_s3[0][0])
-            + E::pairing(crs.va[1], self.com_s3[1][0])
-            + E::pairing(self.com_avk[1][1], self.com_com_att[0]);
-        let rhs = E::pairing(self.theta4[0][1], pk.v1[0])
-            + E::pairing(self.theta4[1][1], pk.v2[0])
-            + E::pairing(pk.u1[1], self.pi4[0][0])
-            + E::pairing(pk.u2[1], self.pi4[1][0]);
-        assert_eq!(lhs, rhs);
+        let should_be_zero = E::multi_pairing(
+            vec![
+                negg,
+                neg_ga,
+                crs.ua[0],
+                crs.ua[1],
+                crs.va[0],
+                crs.va[1],
+                self.com_avk[1][1],
+                -self.theta4[0][1],
+                -self.theta4[1][1],
+                -pk.u1[1],
+                -pk.u2[1],
+            ],
+            vec![
+                self.com_s1[0][0],
+                self.com_s1[1][0],
+                self.com_s2[0][0],
+                self.com_s2[1][0],
+                self.com_s3[0][0],
+                self.com_s3[1][0],
+                self.com_com_att[0],
+                pk.v1[0],
+                pk.v2[0],
+                self.pi4[0][0],
+                self.pi4[1][0],
+            ],
+        );
+
+        assert!(should_be_zero.is_zero());
 
         // check 4
-        let lhs = E::pairing(self.com_avk[0][1], E::G2::generator())
-            + E::pairing(self.com_avk[1][1], self.com_com_att[1])
-            + E::pairing(negg, self.com_s1[0][1])
-            + E::pairing(neg_ga, self.com_s1[1][1])
-            + E::pairing(crs.ua[0], self.com_s2[0][1])
-            + E::pairing(crs.ua[1], self.com_s2[1][1])
-            + E::pairing(crs.va[0], self.com_s3[0][1])
-            + E::pairing(crs.va[1], self.com_s3[1][1]);
-        let rhs = E::pairing(pk.u1[1], self.pi4[0][1])
-            + E::pairing(pk.u2[1], self.pi4[1][1])
-            + E::pairing(self.theta4[0][1], pk.v1[1])
-            + E::pairing(self.theta4[1][1], pk.v2[1]);
-        assert_eq!(lhs, rhs);
+        let should_be_zero = E::multi_pairing(
+            vec![
+                self.com_avk[0][1],
+                self.com_avk[1][1],
+                negg,
+                neg_ga,
+                crs.ua[0],
+                crs.ua[1],
+                crs.va[0],
+                crs.va[1],
+                -pk.u1[1],
+                -pk.u2[1],
+                -self.theta4[0][1],
+                -self.theta4[1][1],
+            ],
+            vec![
+                E::G2::generator(),
+                self.com_com_att[1],
+                self.com_s1[0][1],
+                self.com_s1[1][1],
+                self.com_s2[0][1],
+                self.com_s2[1][1],
+                self.com_s3[0][1],
+                self.com_s3[1][1],
+                self.pi4[0][1],
+                self.pi4[1][1],
+                pk.v1[1],
+                pk.v2[1],
+            ],
+        );
+        assert!(should_be_zero.is_zero());
     }
 }
 

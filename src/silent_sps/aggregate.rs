@@ -556,25 +556,57 @@ impl<E: Pairing> AggregateSig<E> {
 
         theta4[0][0] = pk.u1[0] * tt[0][0] + pk.u2[0] * tt[1][0];
         theta4[1][0] = pk.u1[0] * tt[0][1] + pk.u2[0] * tt[1][1];
-        theta4[0][1] = pk.u1[1] * tt[0][0]
-            + pk.u2[1] * tt[1][0]
-            + negg * r_s1[0][0]
-            + neg_ga * r_s1[1][0]
-            + crs.ua[0] * r_s2[0][0]
-            + crs.ua[1] * r_s2[1][0]
-            + crs.va[0] * r_s3[0][0]
-            + crs.va[1] * r_s3[1][0]
-            + self.avk[1] * r_com_att[0];
+        theta4[0][1] = E::G1::msm(
+            &[
+                pk.u1[1].into(),
+                pk.u2[1].into(),
+                negg.into(),
+                neg_ga.into(),
+                crs.ua[0].into(),
+                crs.ua[1].into(),
+                crs.va[0].into(),
+                crs.va[1].into(),
+                self.avk[1].into(),
+            ],
+            &[
+                tt[0][0],
+                tt[1][0],
+                r_s1[0][0],
+                r_s1[1][0],
+                r_s2[0][0],
+                r_s2[1][0],
+                r_s3[0][0],
+                r_s3[1][0],
+                r_com_att[0],
+            ],
+        )
+        .unwrap();
 
-        theta4[1][1] = pk.u1[1] * tt[0][1]
-            + pk.u2[1] * tt[1][1]
-            + negg * r_s1[0][1]
-            + neg_ga * r_s1[1][1]
-            + crs.ua[0] * r_s2[0][1]
-            + crs.ua[1] * r_s2[1][1]
-            + crs.va[0] * r_s3[0][1]
-            + crs.va[1] * r_s3[1][1]
-            + self.avk[1] * r_com_att[1];
+        theta4[1][1] = E::G1::msm(
+            &[
+                pk.u1[1].into(),
+                pk.u2[1].into(),
+                negg.into(),
+                neg_ga.into(),
+                crs.ua[0].into(),
+                crs.ua[1].into(),
+                crs.va[0].into(),
+                crs.va[1].into(),
+                self.avk[1].into(),
+            ],
+            &[
+                tt[0][1],
+                tt[1][1],
+                r_s1[0][1],
+                r_s1[1][1],
+                r_s2[0][1],
+                r_s2[1][1],
+                r_s3[0][1],
+                r_s3[1][1],
+                r_com_att[1],
+            ],
+        )
+        .unwrap();
 
         pi4[0][0] = pk.v1[0] * (rs[0][0] - tt[0][0]) + pk.v2[0] * (rs[0][1] - tt[0][1]);
         pi4[1][0] = pk.v1[0] * (rs[1][0] - tt[1][0]) + pk.v2[0] * (rs[1][1] - tt[1][1]);
