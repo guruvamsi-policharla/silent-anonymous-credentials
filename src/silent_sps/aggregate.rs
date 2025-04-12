@@ -363,6 +363,99 @@ impl<E: Pairing> AggregateSig<E> {
 
         let negg = -E::G1::generator();
 
+        // prove that e(avk[0],1).e(avk[1],com).e(ua[0],s2[0]).e(ua[1],s2[1]).e(va[0],s3).e(va[1],s3).e(-A[0],s1[0]).e(-A[1],s1[1]) = 0
+        let mut tt = [[E::ScalarField::zero(); 2]; 2];
+        for i in 0..2 {
+            for j in 0..2 {
+                tt[i][j] = E::ScalarField::rand(rng);
+            }
+        }
+
+        let mut rs = [[E::ScalarField::zero(); 2]; 2];
+        for i in 0..2 {
+            for j in 0..2 {
+                rs[i][j] = r_avk[1][j] * r_com_att[j];
+            }
+        }
+
+        let mut theta = [[E::G1::generator(); 2]; 2];
+        let mut pi = [[E::G2::generator(); 2]; 2];
+
+        theta[0][0] = pk.u1[0] * tt[0][0] + pk.u2[0] * tt[1][0];
+        theta[1][0] = pk.u1[0] * tt[0][1] + pk.u2[0] * tt[1][1];
+        theta[0][1] = pk.u1[1] * tt[0][0] + pk.u2[1] * tt[1][0] + f * r_d[0] + a * r_b[0];
+        theta[1][1] = pk.u1[1] * tt[0][1] + pk.u2[1] * tt[1][1] + f * r_d[1] + a * r_b[1];
+
+        //prove that e(s4,s2[0]).e(-g, s3[0]) = 0
+        let mut tt = [[E::ScalarField::zero(); 2]; 2];
+        for i in 0..2 {
+            for j in 0..2 {
+                tt[i][j] = E::ScalarField::rand(rng);
+            }
+        }
+
+        let mut rs = [[E::ScalarField::zero(); 2]; 2];
+        for i in 0..2 {
+            for j in 0..2 {
+                rs[i][j] = r_s4[i] * r_s2[0][j];
+            }
+        }
+
+        let mut theta1 = [[E::G1::generator(); 2]; 2];
+        let mut pi1 = [[E::G2::generator(); 2]; 2];
+
+        theta1[0][0] = pk.u1[0] * tt[0][0] + pk.u2[0] * tt[1][0];
+        theta1[1][0] = pk.u1[0] * tt[0][1] + pk.u2[0] * tt[1][1];
+        theta1[0][1] =
+            pk.u1[1] * tt[0][0] + pk.u2[1] * tt[1][0] + negg * r_s3[0][0] + self.s4 * r_s2[0][0];
+        theta1[1][1] =
+            pk.u1[1] * tt[0][1] + pk.u2[1] * tt[1][1] + negg * r_s3[0][1] + self.s4 * r_s2[0][1];
+
+        pi1[0][0] = pk.v1[0] * (rs[0][0] - tt[0][0]) + pk.v2[0] * (rs[0][1] - tt[0][1]);
+        pi1[1][0] = pk.v1[0] * (rs[1][0] - tt[1][0]) + pk.v2[0] * (rs[1][1] - tt[1][1]);
+        pi1[0][1] = self.s2[0] * r_s4[0]
+            + pk.v1[1] * (rs[0][0] - tt[0][0])
+            + pk.v2[1] * (rs[0][1] - tt[0][1]);
+        pi1[1][1] = self.s2[0] * r_s4[1]
+            + pk.v1[1] * (rs[1][0] - tt[1][0])
+            + pk.v2[1] * (rs[1][1] - tt[1][1]);
+
+        // prove that e(s4,s2[1]).e(-g, s3[1]) = 0
+        let mut tt = [[E::ScalarField::zero(); 2]; 2];
+        for i in 0..2 {
+            for j in 0..2 {
+                tt[i][j] = E::ScalarField::rand(rng);
+            }
+        }
+
+        let mut rs = [[E::ScalarField::zero(); 2]; 2];
+        for i in 0..2 {
+            for j in 0..2 {
+                rs[i][j] = r_s4[i] * r_s2[1][j];
+            }
+        }
+
+        let mut theta2 = [[E::G1::generator(); 2]; 2];
+        let mut pi2 = [[E::G2::generator(); 2]; 2];
+
+        let negg = -E::G1::generator();
+
+        theta2[0][0] = pk.u1[0] * tt[0][0] + pk.u2[0] * tt[1][0];
+        theta2[1][0] = pk.u1[0] * tt[0][1] + pk.u2[0] * tt[1][1];
+        theta2[0][1] =
+            pk.u1[1] * tt[0][0] + pk.u2[1] * tt[1][0] + negg * r_s3[1][0] + self.s4 * r_s2[1][0];
+        theta2[1][1] =
+            pk.u1[1] * tt[0][1] + pk.u2[1] * tt[1][1] + negg * r_s3[1][1] + self.s4 * r_s2[1][1];
+
+        pi2[0][0] = pk.v1[0] * (rs[0][0] - tt[0][0]) + pk.v2[0] * (rs[0][1] - tt[0][1]);
+        pi2[1][0] = pk.v1[0] * (rs[1][0] - tt[1][0]) + pk.v2[0] * (rs[1][1] - tt[1][1]);
+        pi2[0][1] = self.s2[1] * r_s4[0]
+            + pk.v1[1] * (rs[0][0] - tt[0][0])
+            + pk.v2[1] * (rs[0][1] - tt[0][1]);
+        pi2[1][1] = self.s2[1] * r_s4[1]
+            + pk.v1[1] * (rs[1][0] - tt[1][0])
+            + pk.v2[1] * (rs[1][1] - tt[1][1]);
+
         // prove that e(B,K) = show_crs.rhs
         let mut tt = [[E::ScalarField::zero(); 2]; 2];
         for i in 0..2 {
@@ -462,76 +555,6 @@ impl<E: Pairing> AggregateSig<E> {
             ],
         )
         .unwrap();
-
-        //prove that e(s4,s2[0]).e(-g, s3[0]) = 0
-        let mut tt = [[E::ScalarField::zero(); 2]; 2];
-        for i in 0..2 {
-            for j in 0..2 {
-                tt[i][j] = E::ScalarField::rand(rng);
-            }
-        }
-
-        let mut rs = [[E::ScalarField::zero(); 2]; 2];
-        for i in 0..2 {
-            for j in 0..2 {
-                rs[i][j] = r_s4[i] * r_s2[0][j];
-            }
-        }
-
-        let mut theta1 = [[E::G1::generator(); 2]; 2];
-        let mut pi1 = [[E::G2::generator(); 2]; 2];
-
-        theta1[0][0] = pk.u1[0] * tt[0][0] + pk.u2[0] * tt[1][0];
-        theta1[1][0] = pk.u1[0] * tt[0][1] + pk.u2[0] * tt[1][1];
-        theta1[0][1] =
-            pk.u1[1] * tt[0][0] + pk.u2[1] * tt[1][0] + negg * r_s3[0][0] + self.s4 * r_s2[0][0];
-        theta1[1][1] =
-            pk.u1[1] * tt[0][1] + pk.u2[1] * tt[1][1] + negg * r_s3[0][1] + self.s4 * r_s2[0][1];
-
-        pi1[0][0] = pk.v1[0] * (rs[0][0] - tt[0][0]) + pk.v2[0] * (rs[0][1] - tt[0][1]);
-        pi1[1][0] = pk.v1[0] * (rs[1][0] - tt[1][0]) + pk.v2[0] * (rs[1][1] - tt[1][1]);
-        pi1[0][1] = self.s2[0] * r_s4[0]
-            + pk.v1[1] * (rs[0][0] - tt[0][0])
-            + pk.v2[1] * (rs[0][1] - tt[0][1]);
-        pi1[1][1] = self.s2[0] * r_s4[1]
-            + pk.v1[1] * (rs[1][0] - tt[1][0])
-            + pk.v2[1] * (rs[1][1] - tt[1][1]);
-
-        // prove that e(s4,s2[1]).e(-g, s3[1]) = 0
-        let mut tt = [[E::ScalarField::zero(); 2]; 2];
-        for i in 0..2 {
-            for j in 0..2 {
-                tt[i][j] = E::ScalarField::rand(rng);
-            }
-        }
-
-        let mut rs = [[E::ScalarField::zero(); 2]; 2];
-        for i in 0..2 {
-            for j in 0..2 {
-                rs[i][j] = r_s4[i] * r_s2[1][j];
-            }
-        }
-
-        let mut theta2 = [[E::G1::generator(); 2]; 2];
-        let mut pi2 = [[E::G2::generator(); 2]; 2];
-
-        let negg = -E::G1::generator();
-
-        theta2[0][0] = pk.u1[0] * tt[0][0] + pk.u2[0] * tt[1][0];
-        theta2[1][0] = pk.u1[0] * tt[0][1] + pk.u2[0] * tt[1][1];
-        theta2[0][1] =
-            pk.u1[1] * tt[0][0] + pk.u2[1] * tt[1][0] + negg * r_s3[1][0] + self.s4 * r_s2[1][0];
-        theta2[1][1] =
-            pk.u1[1] * tt[0][1] + pk.u2[1] * tt[1][1] + negg * r_s3[1][1] + self.s4 * r_s2[1][1];
-
-        pi2[0][0] = pk.v1[0] * (rs[0][0] - tt[0][0]) + pk.v2[0] * (rs[0][1] - tt[0][1]);
-        pi2[1][0] = pk.v1[0] * (rs[1][0] - tt[1][0]) + pk.v2[0] * (rs[1][1] - tt[1][1]);
-        pi2[0][1] = self.s2[1] * r_s4[0]
-            + pk.v1[1] * (rs[0][0] - tt[0][0])
-            + pk.v2[1] * (rs[0][1] - tt[0][1]);
-        pi2[1][1] = self.s2[1] * r_s4[1]
-            + pk.v1[1] * (rs[1][0] - tt[1][0])
-            + pk.v2[1] * (rs[1][1] - tt[1][1]);
 
         Showing {
             com_b,
