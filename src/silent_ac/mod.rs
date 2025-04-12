@@ -2,6 +2,7 @@ use crate::crs::CRS;
 use crate::gs08;
 use crate::silent_sps::aggregate::AggregateKey;
 use ark_ec::pairing::{Pairing, PairingOutput};
+use ark_ec::AffineRepr;
 use ark_ec::PrimeGroup;
 use ark_std::rand::Rng;
 use ark_std::UniformRand;
@@ -153,11 +154,15 @@ pub struct Showing<E: Pairing> {
 
     pub theta3: [[E::G1; 2]; 2],
     pub pi3: [[E::G2; 2]; 2],
+
+    pub theta4: [[E::G1; 2]; 2],
+    pub pi4: [[E::G2; 2]; 2],
 }
 
 impl<E: Pairing> Showing<E> {
-    pub fn verify(&self, show_crs: &ShowCRS<E>, pk: &gs08::ProverKey<E>) {
+    pub fn verify(&self, show_crs: &ShowCRS<E>, crs: &CRS<E>, pk: &gs08::ProverKey<E>) {
         let negg = -E::G1::generator();
+        let neg_ga = -(crs.a_powers_of_g[0].into_group());
 
         // constraint 1
         // check 1
@@ -329,6 +334,53 @@ impl<E: Pairing> Showing<E> {
             + E::pairing(self.theta3[1][1], pk.v2[1])
             + show_crs.rhs;
         assert_eq!(lhs, rhs);
+
+        // constraint 4
+        // check 1
+        let lhs = E::pairing(self.com_avk[1][0], self.com_com_att[0]);
+        let rhs = E::pairing(self.theta4[0][0], pk.v1[0])
+            + E::pairing(self.theta4[1][0], pk.v2[0])
+            + E::pairing(pk.u1[0], self.pi4[0][0])
+            + E::pairing(pk.u2[0], self.pi4[1][0]);
+        assert_eq!(lhs, rhs);
+
+        // check 2
+        let lhs = E::pairing(self.com_avk[0][0], E::G2::generator())
+            + E::pairing(self.com_avk[1][0], self.com_com_att[1]);
+        let rhs = E::pairing(pk.u1[0], self.pi4[0][1])
+            + E::pairing(pk.u2[0], self.pi4[1][1])
+            + E::pairing(self.theta4[0][0], pk.v1[1])
+            + E::pairing(self.theta4[1][0], pk.v2[1]);
+        assert_eq!(lhs, rhs);
+
+        // check 3
+        let lhs = E::pairing(negg, self.com_s1[0][0])
+            + E::pairing(neg_ga, self.com_s1[1][0])
+            + E::pairing(crs.ua[0], self.com_s2[0][0])
+            + E::pairing(crs.ua[1], self.com_s2[1][0])
+            + E::pairing(crs.va[0], self.com_s3[0][0])
+            + E::pairing(crs.va[1], self.com_s3[1][0])
+            + E::pairing(self.com_avk[1][1], self.com_com_att[0]);
+        let rhs = E::pairing(self.theta4[0][1], pk.v1[0])
+            + E::pairing(self.theta4[1][1], pk.v2[0])
+            + E::pairing(pk.u1[1], self.pi4[0][0])
+            + E::pairing(pk.u2[1], self.pi4[1][0]);
+        assert_eq!(lhs, rhs);
+
+        // check 4
+        let lhs = E::pairing(self.com_avk[0][1], E::G2::generator())
+            + E::pairing(self.com_avk[1][1], self.com_com_att[1])
+            + E::pairing(negg, self.com_s1[0][1])
+            + E::pairing(neg_ga, self.com_s1[1][1])
+            + E::pairing(crs.ua[0], self.com_s2[0][1])
+            + E::pairing(crs.ua[1], self.com_s2[1][1])
+            + E::pairing(crs.va[0], self.com_s3[0][1])
+            + E::pairing(crs.va[1], self.com_s3[1][1]);
+        let rhs = E::pairing(pk.u1[1], self.pi4[0][1])
+            + E::pairing(pk.u2[1], self.pi4[1][1])
+            + E::pairing(self.theta4[0][1], pk.v1[1])
+            + E::pairing(self.theta4[1][1], pk.v2[1]);
+        assert_eq!(lhs, rhs);
     }
 }
 
@@ -495,7 +547,7 @@ mod tests {
         assert_eq!(lhs, show_crs.rhs);
 
         let pk = gs08::ProverKey::<E>::setup(&mut ark_std::test_rng());
-        let showing = agg_sig.show(com, pi, &show_crs, &pk, &mut ark_std::test_rng());
-        showing.verify(&show_crs, &pk);
+        let showing = agg_sig.show(com, pi, &show_crs, &crs, &pk, &mut ark_std::test_rng());
+        showing.verify(&show_crs, &crs, &pk);
     }
 }

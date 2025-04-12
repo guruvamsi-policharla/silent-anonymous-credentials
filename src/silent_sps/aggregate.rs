@@ -4,6 +4,7 @@ use crate::gs08::ProverKey;
 use crate::silent_ac::{ShowCRS, Showing};
 use crate::{crs::CRS, utils::compute_vanishing_poly};
 use ark_ec::pairing::Pairing;
+use ark_ec::AffineRepr;
 use ark_ec::PrimeGroup;
 use ark_ec::VariableBaseMSM;
 use ark_poly::{
@@ -307,6 +308,7 @@ impl<E: Pairing> AggregateSig<E> {
         com_att: E::G2,
         pi: E::G1,
         show_crs: &ShowCRS<E>,
+        crs: &CRS<E>,
         pk: &ProverKey<E>,
         rng: &mut impl Rng,
     ) -> Showing<E> {
@@ -362,29 +364,7 @@ impl<E: Pairing> AggregateSig<E> {
         let (com_s4, r_s4) = pk.commit_g1(&self.s4, rng);
 
         let negg = -E::G1::generator();
-
-        // prove that e(avk[0],1).e(avk[1],com).e(ua[0],s2[0]).e(ua[1],s2[1]).e(va[0],s3).e(va[1],s3).e(-A[0],s1[0]).e(-A[1],s1[1]) = 0
-        let mut tt = [[E::ScalarField::zero(); 2]; 2];
-        for i in 0..2 {
-            for j in 0..2 {
-                tt[i][j] = E::ScalarField::rand(rng);
-            }
-        }
-
-        let mut rs = [[E::ScalarField::zero(); 2]; 2];
-        for i in 0..2 {
-            for j in 0..2 {
-                rs[i][j] = r_avk[1][j] * r_com_att[j];
-            }
-        }
-
-        let mut theta = [[E::G1::generator(); 2]; 2];
-        let mut pi = [[E::G2::generator(); 2]; 2];
-
-        theta[0][0] = pk.u1[0] * tt[0][0] + pk.u2[0] * tt[1][0];
-        theta[1][0] = pk.u1[0] * tt[0][1] + pk.u2[0] * tt[1][1];
-        theta[0][1] = pk.u1[1] * tt[0][0] + pk.u2[1] * tt[1][0] + f * r_d[0] + a * r_b[0];
-        theta[1][1] = pk.u1[1] * tt[0][1] + pk.u2[1] * tt[1][1] + f * r_d[1] + a * r_b[1];
+        let neg_ga = -(crs.a_powers_of_g[0].into_group());
 
         //prove that e(s4,s2[0]).e(-g, s3[0]) = 0
         let mut tt = [[E::ScalarField::zero(); 2]; 2];
@@ -556,6 +536,57 @@ impl<E: Pairing> AggregateSig<E> {
         )
         .unwrap();
 
+        // prove that e(avk[0],1).e(avk[1],com).e(ua[0],s2[0]).e(ua[1],s2[1]).e(va[0],s3[0]).e(va[1],s3[1]).e(-A[0],s1[0]).e(-A[1],s1[1]) = 0
+        let mut tt = [[E::ScalarField::zero(); 2]; 2];
+        for i in 0..2 {
+            for j in 0..2 {
+                tt[i][j] = E::ScalarField::rand(rng);
+            }
+        }
+
+        let mut rs = [[E::ScalarField::zero(); 2]; 2];
+        for i in 0..2 {
+            for j in 0..2 {
+                rs[i][j] = r_avk[1][i] * r_com_att[j];
+            }
+        }
+
+        let mut theta4 = [[E::G1::generator(); 2]; 2];
+        let mut pi4 = [[E::G2::generator(); 2]; 2];
+
+        theta4[0][0] = pk.u1[0] * tt[0][0] + pk.u2[0] * tt[1][0];
+        theta4[1][0] = pk.u1[0] * tt[0][1] + pk.u2[0] * tt[1][1];
+        theta4[0][1] = pk.u1[1] * tt[0][0]
+            + pk.u2[1] * tt[1][0]
+            + negg * r_s1[0][0]
+            + neg_ga * r_s1[1][0]
+            + crs.ua[0] * r_s2[0][0]
+            + crs.ua[1] * r_s2[1][0]
+            + crs.va[0] * r_s3[0][0]
+            + crs.va[1] * r_s3[1][0]
+            + self.avk[1] * r_com_att[0];
+
+        theta4[1][1] = pk.u1[1] * tt[0][1]
+            + pk.u2[1] * tt[1][1]
+            + negg * r_s1[0][1]
+            + neg_ga * r_s1[1][1]
+            + crs.ua[0] * r_s2[0][1]
+            + crs.ua[1] * r_s2[1][1]
+            + crs.va[0] * r_s3[0][1]
+            + crs.va[1] * r_s3[1][1]
+            + self.avk[1] * r_com_att[1];
+
+        pi4[0][0] = pk.v1[0] * (rs[0][0] - tt[0][0]) + pk.v2[0] * (rs[0][1] - tt[0][1]);
+        pi4[1][0] = pk.v1[0] * (rs[1][0] - tt[1][0]) + pk.v2[0] * (rs[1][1] - tt[1][1]);
+        pi4[0][1] = pk.v1[1] * (rs[0][0] - tt[0][0])
+            + pk.v2[1] * (rs[0][1] - tt[0][1])
+            + com_att * r_avk[1][0]
+            + E::G2::generator() * r_avk[0][0];
+        pi4[1][1] = pk.v1[1] * (rs[1][0] - tt[1][0])
+            + pk.v2[1] * (rs[1][1] - tt[1][1])
+            + com_att * r_avk[1][1]
+            + E::G2::generator() * r_avk[0][1];
+
         Showing {
             com_b,
             com_avk,
@@ -577,6 +608,8 @@ impl<E: Pairing> AggregateSig<E> {
             pi2,
             theta3,
             pi3,
+            theta4,
+            pi4,
         }
     }
 }
