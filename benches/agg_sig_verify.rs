@@ -54,7 +54,7 @@ fn bench_aggregate(c: &mut Criterion) {
     }
 
     let agg_key = AggregateKey::<E>::new(vk.clone(), hints.clone());
-    let agg_sig = agg_key.agg_sig(&partial_sigs, &selector, crs.clone());
+    let agg_sig = agg_key.agg_sig(&partial_sigs, &selector, &crs);
 
     // verify
     agg_sig.verify(m, t, &agg_key.mvk, &crs);

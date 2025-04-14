@@ -74,7 +74,7 @@ impl<E: Pairing> AggregateKey<E> {
         &self,
         partial_sigs: &Vec<Sig<E>>,
         selector: &[bool],
-        crs: CRS<E>,
+        crs: &CRS<E>,
     ) -> AggregateSig<E> {
         let domain = Radix2EvaluationDomain::<E::ScalarField>::new(crs.n).unwrap();
         let domain_elements: Vec<E::ScalarField> = domain.elements().collect();
@@ -704,7 +704,7 @@ mod tests {
         }
 
         let agg_key = AggregateKey::<E>::new(vk.clone(), hints.clone());
-        let agg_sig = agg_key.agg_sig(&partial_sigs, &selector, crs.clone());
+        let agg_sig = agg_key.agg_sig(&partial_sigs, &selector, &crs);
 
         // verify
         agg_sig.verify(m, t, &agg_key.mvk, &crs);

@@ -10,9 +10,12 @@ ark-ec = { version = "0.5.0" }
 ark-ff = { version = "0.5.0" }
 ark-poly = { version = "0.5.0" }
 ark-bls12-381 = { version = "0.5.0" }
+ark-bn254 = { version = "0.5.0" }
 ark-serialize = { version = "0.5.0" }
 rand = { version = "0.9.0", default-features = false, features = ["std_rng"] }
 blake3 = { version = "1.8" }
+rayon = { version = "1.7" }
+num_cpus = { version = "1.16" }
 
 [features]
 asm = ["ark-ff/asm"]
@@ -22,6 +25,11 @@ opt-level = 3
 
 [[bench]]
 name = "sign"
+harness = false
+
+
+[[bench]]
+name = "verify"
 harness = false
 
 [[bench]]

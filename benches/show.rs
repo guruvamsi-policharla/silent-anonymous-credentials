@@ -12,10 +12,15 @@ use silent_anonymous_credentials::silent_sps::aggregate::AggregateKey;
 use silent_anonymous_credentials::silent_sps::Sig;
 use silent_anonymous_credentials::silent_sps::SK;
 
-type E = ark_bls12_381::Bls12_381;
-type G1 = ark_bls12_381::G1Projective;
-type G2 = ark_bls12_381::G2Projective;
-type F = ark_bls12_381::Fr;
+// type E = ark_bls12_381::Bls12_381;
+// type G1 = ark_bls12_381::G1Projective;
+// type G2 = ark_bls12_381::G2Projective;
+// type F = ark_bls12_381::Fr;
+
+type E = ark_bn254::Bn254;
+type G1 = ark_bn254::G1Projective;
+type G2 = ark_bn254::G2Projective;
+type F = ark_bn254::Fr;
 
 fn bench_show(c: &mut Criterion) {
     let rng = &mut ark_std::test_rng();
@@ -71,7 +76,7 @@ fn bench_show(c: &mut Criterion) {
     }
 
     let agg_key = AggregateKey::<E>::new(vk.clone(), hints.clone());
-    let agg_sig = agg_key.agg_sig(&partial_sigs, &selector, crs.clone());
+    let agg_sig = agg_key.agg_sig(&partial_sigs, &selector, &crs);
 
     // verify
     agg_sig.verify(com, t, &agg_key.mvk, &crs);
