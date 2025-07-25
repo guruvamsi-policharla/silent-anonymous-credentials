@@ -26,9 +26,6 @@ The library depends on the [arkworks](https://github.com/arkworks-rs) ecosystem 
 - **`benches/`**: Performance benchmarks for all major operations
 
 ## Benchmarking
-
-The library includes comprehensive benchmarks for all major operations:
-
 ```bash
 # Run all benchmarks
 cargo bench
